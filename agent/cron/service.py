@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from datetime import datetime
 from agent.utils.common_util import ensure_dir
 from agent.utils.logger import get_logger
 
@@ -15,15 +16,17 @@ log = get_logger("cron_service")
 
 @dataclass
 class CronSchedule:
-    kind: str  # "every" (periodic execution) or "at" (one-time execution)
+    kind: str  # "every" (periodic execution) , "at" (one-time execution), "cron": cron expression
     every_ms: int = 0  # interval in milliseconds for periodic execution
     at_ms: int = 0  # absolute timestamp (in milliseconds) for one-time execution
+    expr: str | None = None # For "cron": cron expression (e.g. "0 9 * * *") 。
 
     def to_dict(self) -> dict:
         return {
             "kind": self.kind,
             "every_ms": self.every_ms,
             "at_ms": self.at_ms,
+            "expr": self.expr
         }
 
     @classmethod
@@ -32,6 +35,7 @@ class CronSchedule:
             kind=data["kind"],
             every_ms=data.get("every_ms", 0),
             at_ms=data.get("at_ms", 0),
+            expr=data.get("expr"),
         )
 
 @dataclass
@@ -103,6 +107,15 @@ def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
     elif schedule.kind == "at":
         # If the execution time has passed, return None to indicate no further execution
         return schedule.at_ms if schedule.at_ms > now_ms else None
+    elif schedule.kind == "cron":
+        from croniter import croniter
+
+        base_time = now_ms / 1000
+        base_date = datetime.fromtimestamp(base_time)
+        cron = croniter(schedule.expr,base_date)
+        next_date = cron.get_next(datetime)
+        return int(next_date.timestamp() * 1000)
+
     return None
 
 class CronService:

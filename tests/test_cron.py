@@ -1,3 +1,4 @@
+import datetime
 import json
 import time
 
@@ -7,6 +8,23 @@ from agent.cron.service import _now_ms, CronSchedule, _compute_next_run, CronJob
 def test_now_ms():
     assert abs(time.time() * 1000 - _now_ms()) < 100
 
+def test_compute_next_run_cron():
+    cron_sched = CronSchedule(
+        kind="cron",
+        expr="0 9 * * *"
+    )
+    actual_next_ts = _compute_next_run(cron_sched, _now_ms())
+
+    now = datetime.datetime.now()
+    expected_dt = now.replace(hour=9, minute=0, second=0, microsecond=0)
+
+    #Calculate the expected next run time (9:00 today or tomorrow)
+    if expected_dt <= now:
+        expected_dt += datetime.timedelta(days=1)
+
+    expected_next_ts = int(expected_dt.timestamp() * 1000)
+
+    assert actual_next_ts == expected_next_ts
 
 def test_compute_next_run_every():
     every_ms = 30*1000
@@ -169,56 +187,90 @@ def test_cron_service_all(tmp_path):
     time.sleep(3)
     service.stop()
 
+def test_cron_service_cron(tmp_path):
+    def call_job(job: CronJob):
+        print(f"  -> Processing business: {job.payload}")
+
+    service = CronService(
+        on_job=call_job,
+        max_sleep_ms = 2000,
+        workspace=tmp_path
+    )
+
+    cron_sched = CronSchedule(
+        kind="cron",
+        expr="0/2 * * * * *"
+    )
+    test1 = service.add_job("test1",schedule=cron_sched,payload={"version":"1.0"})
+    service.start()
+
+    time.sleep(5)
+    service.stop()
+
 def test_cron_job_path(tmp_path):
     service = CronService(workspace=tmp_path)
     assert service._get_corn_job_path() == tmp_path / "cron" / "cron.json"
 
 
 CRON_JOB_JSON = """
-[
-  {
-    "id": "d70506a5",
-    "name": "test1",
-    "enabled": [
-      true
-    ],
-    "schedule": {
-      "kind": "at",
-      "every_ms": 0,
-      "at_ms": 1777132479751
-    },
-    "state": {
-      "next_run_at_ms": 1777132479751,
-      "last_run_at_ms": null,
-      "last_status": null,
-      "last_error": null
-    },
-    "payload": {
-      "version": "1.0"
-    }
+[ {
+  "id" : "e9f363dd",
+  "name" : "test1",
+  "enabled" : [ true ],
+  "schedule" : {
+    "kind" : "at",
+    "every_ms" : 0,
+    "at_ms" : 1777191405185,
+    "expr" : null
   },
-  {
-    "id": "3f454aa3",
-    "name": "test2",
-    "enabled": [
-      true
-    ],
-    "schedule": {
-      "kind": "every",
-      "every_ms": 1000,
-      "at_ms": 0
-    },
-    "state": {
-      "next_run_at_ms": 1777132480251,
-      "last_run_at_ms": null,
-      "last_status": null,
-      "last_error": null
-    },
-    "payload": {
-      "version": "1.0"
-    }
+  "state" : {
+    "next_run_at_ms" : 1777191405185,
+    "last_run_at_ms" : null,
+    "last_status" : null,
+    "last_error" : null
+  },
+  "payload" : {
+    "version" : "1.0"
   }
-]
+}, {
+  "id" : "dcab7da6",
+  "name" : "test2",
+  "enabled" : [ true ],
+  "schedule" : {
+    "kind" : "every",
+    "every_ms" : 1000,
+    "at_ms" : 0,
+    "expr" : null
+  },
+  "state" : {
+    "next_run_at_ms" : 1777191405686,
+    "last_run_at_ms" : null,
+    "last_status" : null,
+    "last_error" : null
+  },
+  "payload" : {
+    "version" : "1.0"
+  }
+}, {
+  "id" : "62039d5b",
+  "name" : "test3",
+  "enabled" : [ true ],
+  "schedule" : {
+    "kind" : "cron",
+    "every_ms" : 0,
+    "at_ms" : 0,
+    "expr" : "0 9 * * *"
+  },
+  "state" : {
+    "next_run_at_ms" : 1777251600000,
+    "last_run_at_ms" : null,
+    "last_status" : null,
+    "last_error" : null
+  },
+  "payload" : {
+    "version" : "1.0"
+  }
+} ]
 """
 
 def test_save(tmp_path):
@@ -231,10 +283,15 @@ def test_save(tmp_path):
         kind="every",
         every_ms=1000
     )
+    cron_sched = CronSchedule(
+        kind="cron",
+        expr="0 9 * * *"
+    )
 
     service = CronService(workspace=tmp_path)
     service.add_job("test1",schedule=at_sched,payload={"version":"1.0"})
     service.add_job("test2",schedule=every_sched,payload={"version":"1.0"})
+    service.add_job("test3",schedule=cron_sched,payload={"version":"1.0"})
     service._save()
 
     corn_path = tmp_path / "cron" / "cron.json"
@@ -245,6 +302,8 @@ def test_save(tmp_path):
     assert cronjob_list[0]["schedule"]["kind"] == "at"
     assert cronjob_list[1]["name"] == "test2"
     assert cronjob_list[1]["schedule"]["kind"] == "every"
+    assert cronjob_list[2]["name"] == "test3"
+    assert cronjob_list[2]["schedule"]["kind"] == "cron"
 
     print()
 

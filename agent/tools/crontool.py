@@ -67,8 +67,9 @@ _service = CronService(on_job=push_message,workspace=Path(get_working_dir()))
 
 @tool
 def add_cronjob(
-        kind: Literal["at", "every"],
+        kind: Literal["at", "every","cron"],
         time_ms: int,
+        expr: str,
         name: str,
         message: str,
         channel: Literal["feishu", "cli"],
@@ -82,9 +83,14 @@ def add_cronjob(
         kind (Literal["at", "every"]): 定时任务的触发类型。
             - "at": 在某个绝对时间点触发一次。
             - "every": 按固定周期循环触发。
+            - "cron": 使用cron表达式触发
         time_ms (int): 时间配置，单位严格为毫秒。
             - 当 kind 为 "at" 时：必须是未来的**绝对时间戳**（如 Unix 毫秒级时间戳 1690000000000）。禁止传入相对时间！
             - 当 kind 为 "every" 时：表示执行的间隔时长（如 5000 代表每 5 秒执行一次）。
+            - 当 kind 为 "cron" 时：填 0
+        expr (str): cron表达式符号
+            - 当 kind 为 "cron" 时：标准的 Cron 表达式符号, 分别代表：分钟、小时、日期、月份、星期），中间用空格隔开
+            - 当 kind 不为 "cron" 时：填none
         name (str): 定时任务的唯一名称标识，用于后续管理、查询或取消任务。
         message (str): 定时任务触发时需要发送的具体消息内容。
             - 当 event 为 "system_event" 时：请直接填入用户希望发送的完整文本。
@@ -104,10 +110,15 @@ def add_cronjob(
             kind="at",
             at_ms=time_ms
         )
-    else:
+    elif kind == "every":
         sched = CronSchedule(
             kind="every",
             every_ms=time_ms
+        )
+    else:
+        sched = CronSchedule(
+            kind="cron",
+            expr=expr
         )
 
     configurable = runtime.config.get("configurable") if runtime.config else {}
