@@ -13,22 +13,10 @@ from agent.bus.bus import MessageBus
 from agent.bus.events import OutMessage
 from agent.integration.base import BaseChannel
 from agent.integration.feishu.config import FeishuBotConfig
-from agent.server import get_agent
 from agent.utils.logger import get_logger
 import lark_oapi as lark
 
 logger = get_logger("feishu_bot")
-
-class CaiCoderClient:
-    def __init__(self):
-        self.agent = get_agent()
-
-    def chat(self, session_id :str, content:str) -> str:
-        config = {"configurable": {"thread_id": session_id}}
-        response = self.agent.invoke({"messages": [{"role": "user", "content": content}]}, config=config)
-        return response["messages"][-1].content
-
-
 
 class FeishuChannel(BaseChannel):
     name = "feishu"
@@ -79,7 +67,7 @@ class FeishuChannel(BaseChannel):
             .build()
         )
 
-    def  send(self, msg: OutMessage) -> None:
+    def send(self, msg: OutMessage) -> None:
         chat_id = msg.chat_id
         content = msg.content
         metadata = msg.metadata
@@ -89,10 +77,11 @@ class FeishuChannel(BaseChannel):
             self._send_message(chat_id=chat_id,text=content)
             return
 
-        message_id = metadata["message_id"]
-        reaction_id = metadata["reaction_id"]
+        message_id = metadata.get("message_id")
+        reaction_id = metadata.get("reaction_id")
         # 删除表情
-        self._reply_message_reaction_delete(message_id=message_id, reaction_id=reaction_id)
+        if reaction_id:
+            self._reply_message_reaction_delete(message_id=message_id, reaction_id=reaction_id)
 
         self._reply_message(message_id, content)
         self.logger.info(f"[发送回复] message_id={message_id}, reply={content[:100]}...")
@@ -145,15 +134,22 @@ class FeishuChannel(BaseChannel):
             # 表情回复
             reaction_id = self._reply_message_reaction_create(message_id=message_id)
 
+            metadata = {
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "reaction_id": reaction_id,
+            }
+
+            content = ("=== Conversation info (trusted metadata) ===\n"
+                       + json.dumps(metadata, ensure_ascii=False, indent=2) + "\n\n"  +final_text)
+
+
+            logger.debug("handle messages: " + content)
+
             self._handle_message(
                 chat_id=chat_id,
-                content=final_text,
-                metadata={
-                    "chat_id":chat_id,
-                    "message_id":message_id,
-                    "text": final_text,
-                    "reaction_id":reaction_id,
-                }
+                content=content,
+                metadata=metadata
             )
 
             self.task_db[message_id] = None

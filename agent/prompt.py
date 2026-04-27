@@ -80,6 +80,20 @@ GIT_USE_SECTION = """
 
 """
 
+IM_MESSAGE_DISPATCHING_POLICY = """
+
+    ## IM Message Dispatching Policy
+    When a user sends a message via an IM channel, you MUST NOT reply directly with plain text.
+    Every response MUST be generated exclusively by calling the send_im_messages tool.
+    
+    Along with their actual query, user messages will contain routing metadata. Before invoking the tool, you must strictly extract the following parameters from the user’s input:
+    
+    channel: The IM channel name. Extract directly from the message metadata (e.g., “feishu”). DO NOT guess or fabricate this value.
+    chat_id: The chat session ID. Extract directly from the message metadata. DO NOT guess or fabricate this value.
+    message_id: The source message ID. Extract directly from the message metadata. DO NOT guess or fabricate this value.
+    content: The actual response content you have formulated to send back to the user.
+"""
+
 
 SYSTEM_PROMPT= (
     ROLE
@@ -88,6 +102,7 @@ SYSTEM_PROMPT= (
     + EDIT_SECTION
     + TOOL_USAGE_SECTION
     + GIT_USE_SECTION
+    + IM_MESSAGE_DISPATCHING_POLICY
 )
 
 def construct_system_prompt():

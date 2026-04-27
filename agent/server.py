@@ -21,7 +21,7 @@ from .tools import (
     bash,
     http_request,
     http_get,
-    http_post, add_cronjob
+    http_post, add_cronjob, send_im_messages
 )
 from .prompt import construct_system_prompt
 from .utils.logger import get_logger
@@ -63,7 +63,8 @@ def get_agent(checkpointer: Checkpointer = InMemorySaver(), mcptools: list[BaseT
         http_request,
         http_get,
         http_post,
-        add_cronjob
+        add_cronjob,
+        send_im_messages
     ]
 
     if mcptools:
@@ -146,14 +147,6 @@ class AgentLoop:
 
             config = {"configurable": {"thread_id": chat_id}}
             response = self.agent.invoke({"messages": [{"role": "user", "content": content}]}, config=config)
-
-            out_message = OutMessage(
-                channel=channel,
-                chat_id=chat_id,
-                content=response["messages"][-1].content,
-                metadata=msg.metadata
-            )
-            self.bus.publish_outbound(out_message)
 
 
     def start(self):
