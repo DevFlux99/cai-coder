@@ -82,7 +82,8 @@ class FeishuChannel(BaseChannel):
         # 删除表情
         if reaction_id:
             self._reply_message_reaction_delete(message_id=message_id, reaction_id=reaction_id)
-
+        if content == "[AGENT_FINISHED]":
+            return
         self._reply_message(message_id, content)
         self.logger.info(f"[发送回复] message_id={message_id}, reply={content[:100]}...")
 

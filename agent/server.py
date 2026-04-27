@@ -147,6 +147,13 @@ class AgentLoop:
 
             config = {"configurable": {"thread_id": chat_id}}
             response = self.agent.invoke({"messages": [{"role": "user", "content": content}]}, config=config)
+            out_message = OutMessage(
+                channel=channel,
+                chat_id=chat_id,
+                content="[AGENT_FINISHED]",
+                metadata=msg.metadata
+            )
+            self.bus.publish_outbound(out_message)
 
 
     def start(self):
