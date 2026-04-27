@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import queue
 import random
 from collections import OrderedDict
@@ -7,7 +8,7 @@ from typing import Dict
 
 from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody, ReplyMessageRequest, \
     ReplyMessageRequestBody, CreateMessageReactionRequest, CreateMessageReactionRequestBuilder, EmojiBuilder, \
-    CreateMessageReactionRequestBody, Emoji, DeleteMessageReactionRequest
+    CreateMessageReactionRequestBody, Emoji, DeleteMessageReactionRequest, CreateImageResponse
 
 from agent.bus.bus import MessageBus
 from agent.bus.events import OutMessage
@@ -67,6 +68,8 @@ class FeishuChannel(BaseChannel):
             .build()
         )
 
+    _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif"}
+
     def send(self, msg: OutMessage) -> None:
         chat_id = msg.chat_id
         content = msg.content
@@ -84,7 +87,35 @@ class FeishuChannel(BaseChannel):
             self._reply_message_reaction_delete(message_id=message_id, reaction_id=reaction_id)
         if content == "[AGENT_FINISHED]":
             return
-        self._reply_message(message_id, content)
+
+        def _do_reply(msg_type:str, reply_message: str) -> None:
+            self._reply_message(message_id, msg_type, reply_message)
+
+        media = metadata.get("media") or []
+        for file_path in media:
+            if not os.path.isfile(file_path):
+                logger.warning("Media file not found: {}", file_path)
+                continue
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext in self._IMAGE_EXTS:
+                key = self._upload_image(file_path)
+                if key:
+                    _do_reply("image", reply_message= json.dumps({"image_key": key}, ensure_ascii=False))
+
+        if content:
+            reply = {
+                "zh_cn": {
+                    "content": [
+                        [{
+                            "tag": "md",
+                            "text": content
+                        }]
+                    ]
+                }
+            }
+            send_content = json.dumps(reply, ensure_ascii=False, indent=2)
+            _do_reply( msg_type="post", reply_message=send_content)
+
         self.logger.info(f"[发送回复] message_id={message_id}, reply={content[:100]}...")
 
     def _handle_message_receive(self, data: lark.im.v1.P2ImMessageReceiveV1):
@@ -203,7 +234,7 @@ class FeishuChannel(BaseChannel):
             self.logger.debug("删除表情成功")
 
 
-    def _reply_message(self, message_id: str, text: str):
+    def _reply_message(self, message_id: str, msg_type: str,reply: str):
         """
         发送消息到飞书
 
@@ -211,25 +242,13 @@ class FeishuChannel(BaseChannel):
             chat_id: 聊天 ID
             text: 消息文本
         """
-        reply = {
-            "zh_cn": {
-                "content": [
-                    [{
-                        "tag": "md",
-                        "text": text
-                    }]
-                ]
-            }
-        }
 
-
-        content = json.dumps(reply, ensure_ascii=False, indent=2)
         try:
             request = ReplyMessageRequest.builder() \
                 .message_id(message_id) \
                 .request_body(ReplyMessageRequestBody.builder()
-                              .msg_type("post") # 指定消息类型为文本
-                              .content(content)  # 填入 JSON 字符串
+                              .msg_type(msg_type) # 指定消息类型为文本
+                              .content(reply)  # 填入 JSON 字符串
                               .build()) \
                 .build()
 
@@ -283,6 +302,30 @@ class FeishuChannel(BaseChannel):
             self.logger.error(f"创建消息时出错: {e}")
             import traceback
             self.logger.error(traceback.format_exc())
+
+
+    def _upload_image(self, file_path: str) -> str | None:
+        """Upload image to Feishu, return image key"""
+        from lark_oapi.api.im.v1 import CreateImageRequest, CreateImageRequestBody
+        try:
+            with open(file_path, "rb") as f:
+                request: CreateImageRequest = CreateImageRequest.builder() \
+                    .request_body(CreateImageRequestBody.builder()
+                                  .image_type("message")
+                                  .image(f)
+                                  .build()) \
+                    .build()
+                response: CreateImageResponse = self.client2.im.v1.image.create(request)
+                if response.success():
+                    image_key = response.data.image_key
+                    logger.debug("Uploaded image {}: {}", os.path.basename(file_path), image_key)
+                    return image_key
+                else:
+                    logger.error("Failed to upload image to Feishu: code={}, msg={}", response.code, response.msg)
+        except Exception as e:
+            logger.error("Error uploading image {}: {}", file_path, e)
+            return None
+
 
     def start(self) -> None:
         """启动机器人"""

@@ -11,7 +11,8 @@ def send_im_messages(
         channel: Literal["feishu"],
         chat_id: str,
         content: str,
-        message_id: str
+        message_id: str,
+        media: list[str],
 ):
     """通过指定的IM渠道向目标会话发送消息。
 
@@ -23,7 +24,7 @@ def send_im_messages(
         chat_id (str): 目标会话或群聊的唯一标识ID。通常由用户的上行消息上下文中获取。
         content (str): 需要发送的具体消息文本内容（纯文本或特定格式支持的Markdown）。
         message_id (str): 关联的源消息ID。通常用于消息链路追踪或记录“是针对哪条用户消息的回复”。
-
+        media (list[str]): 需要随消息一起发送的本地文件或图片的绝对路径列表。例如：["/data/uploads/img.png", "/data/docs/report.pdf"]。如果没有附件，必须传入空列表 []，严禁传入 None。
     Returns:
         str: 返回发送结果的确认信息，例如："消息发送成功"。
     """
@@ -31,6 +32,9 @@ def send_im_messages(
         channel=channel,
         chat_id=chat_id,
         content=content,
-        metadata={"message_id": message_id}
+        metadata={
+            "message_id": message_id,
+            "media": media
+        }
     )
     global_message_bus.publish_outbound(out_message)
