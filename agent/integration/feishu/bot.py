@@ -69,6 +69,17 @@ class FeishuChannel(BaseChannel):
         )
 
     _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif"}
+    _FILE_TYPE_MAP = {
+        ".opus": "opus",
+        ".mp4": "mp4",
+        ".pdf": "pdf",
+        ".doc": "doc",
+        ".docx": "doc",
+        ".xls": "xls",
+        ".xlsx": "xls",
+        ".ppt": "ppt",
+        ".pptx": "ppt",
+    }
 
     def send(self, msg: OutMessage) -> None:
         chat_id = msg.chat_id
@@ -101,6 +112,11 @@ class FeishuChannel(BaseChannel):
                 key = self._upload_image(file_path)
                 if key:
                     _do_reply("image", reply_message= json.dumps({"image_key": key}, ensure_ascii=False))
+
+            else:
+                key = self._upload_file(file_path)
+                if key:
+                    _do_reply("file", reply_message= json.dumps({"file_key": key}, ensure_ascii=False))
 
         if content:
             reply = {
@@ -324,6 +340,34 @@ class FeishuChannel(BaseChannel):
                     logger.error("Failed to upload image to Feishu: code={}, msg={}", response.code, response.msg)
         except Exception as e:
             logger.error("Error uploading image {}: {}", file_path, e)
+            return None
+
+    def _upload_file(self, file_path: str) -> str | None:
+        """Upload file to Feishu, return file key"""
+        from lark_oapi.api.im.v1 import CreateFileRequest, CreateFileRequestBody,CreateFileResponse
+
+        ext = os.path.splitext(file_path)[1].lower()
+        file_type = self._FILE_TYPE_MAP.get(ext, "stream")
+        file_name = os.path.basename(file_path)
+        try:
+            with open(file_path, "rb") as f:
+                request: CreateFileRequest = CreateFileRequest.builder() \
+                    .request_body(CreateFileRequestBody.builder()
+                                  .file_type(file_type)
+                                  .file_name(file_name)
+                                  .file(f)
+                                  .build()) \
+                    .build()
+                response: CreateFileResponse = self.client2.im.v1.file.create(request)
+                if response.success():
+                    file_key = response.data.file_key
+                    logger.debug("Uploaded file {}: {}", file_name, file_key)
+                    return file_key
+                else:
+                    logger.error("Failed to upload file to Feishu: code={}, msg={}", response.code, response.msg)
+                    return None
+        except Exception as e:
+            logger.error("Error uploading file {}: {}", file_path, e)
             return None
 
 

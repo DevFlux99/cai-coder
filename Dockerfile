@@ -38,6 +38,10 @@ RUN apt-get update && \
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1
 
+# ---------- 全局配置 pip 镜像源（不仅构建生效，进容器装包也生效） ----------
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
+    pip config set global.trusted-host mirrors.tuna.tsinghua.edu.cn
+
 # 复制依赖文件（先复制以利用 Docker 缓存）
 COPY pyproject.toml .
 
