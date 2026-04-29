@@ -1,5 +1,7 @@
 import os
 import threading
+from collections import defaultdict, deque
+from concurrent.futures import  ThreadPoolExecutor, Future
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import TodoListMiddleware, ToolRetryMiddleware, ModelRetryMiddleware, \
@@ -10,7 +12,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Checkpointer
 
 from .bus.bus import MessageBus
-from .bus.events import OutMessage
+from .bus.events import OutMessage, InMessage
 from .middleware import SkillMiddleware
 from .session import SessionManager
 from .tools import (
@@ -21,7 +23,7 @@ from .tools import (
     bash,
     http_request,
     http_get,
-    http_post, add_cronjob
+    http_post, add_cronjob, send_im_messages
 )
 from .prompt import construct_system_prompt
 from .utils.logger import get_logger
@@ -63,7 +65,8 @@ def get_agent(checkpointer: Checkpointer = InMemorySaver(), mcptools: list[BaseT
         http_request,
         http_get,
         http_post,
-        add_cronjob
+        add_cronjob,
+        send_im_messages
     ]
 
     if mcptools:
@@ -120,23 +123,47 @@ class AgentLoop:
     def __init__(
             self,bus: MessageBus,
             session_manager: SessionManager=None,
-            checkpoint: Checkpointer = InMemorySaver()):
+            checkpoint: Checkpointer = InMemorySaver(),
+            max_workers: int = 4
+    ):
         self.bus = bus
         self.session_manager = session_manager
         self.agent = get_agent(checkpointer=checkpoint)
         self._running = False
         self._thread = threading.Thread(target=self.run, daemon=True)
+        self.max_workers = max_workers
+        self.executor = None
+
+        # Session
+        self.chat_futures: dict[str, Future] = {} # Active futures per chat_id
+        self.chat_queues: dict[str,deque] = defaultdict(deque) # Pending messages
+        self.chat_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
 
 
     def run(self):
         self._running = True
-        while self._running:
-            try:
-                msg = self.bus.consume_inbound(timeout=5)
-            except Exception:
-                continue
-            if msg is None:
-                continue
+
+        self.executor = ThreadPoolExecutor(max_workers=self.max_workers,thread_name_prefix = "agent_loop")
+
+        try:
+            while self._running:
+                try:
+                    msg = self.bus.consume_inbound(timeout=5)
+                except Exception:
+                    continue
+                if msg is None:
+                    continue
+
+                self._submit_message(msg)
+
+        finally:
+            if self.executor:
+                self.executor.shutdown(wait=False)
+                logger.info("AgentLoop thread pool has been shut down")
+
+    def _process_message(self, msg: InMessage) -> None:
+        chat_id = msg.chat_id
+        try:
             content = msg.content
             chat_id = msg.chat_id
             channel = msg.channel
@@ -146,18 +173,54 @@ class AgentLoop:
 
             config = {"configurable": {"thread_id": chat_id}}
             response = self.agent.invoke({"messages": [{"role": "user", "content": content}]}, config=config)
-
             out_message = OutMessage(
                 channel=channel,
                 chat_id=chat_id,
-                content=response["messages"][-1].content,
+                content="[AGENT_FINISHED]",
                 metadata=msg.metadata
             )
             self.bus.publish_outbound(out_message)
 
+        except Exception as e:
+            logger.error(f"Error processing message, chat_id={chat_id}, error={e}")
+        finally:
+            # Remove the future from active futures
+            self.chat_futures.pop(chat_id, None)
+            self._process_next_message(chat_id)
+
+    def _process_next_message(self, chat_id: str):
+
+        with self.chat_locks[chat_id]:
+            if chat_id in self.chat_futures:
+                return
+
+            if not  self.chat_queues[chat_id]:
+                return
+
+            msg = self.chat_queues[chat_id].popleft()
+            future = self.executor.submit(self._process_message, msg)
+            self.chat_futures[chat_id] = future
+            logger.debug(f"Submitted processing task: chat_i={chat_id}, remaining in queue:{len(self.chat_queues)}")
+
+
+    def _submit_message(self, msg:InMessage):
+        chat_id = msg.chat_id
+
+        if chat_id not in self.chat_futures:
+            future = self.executor.submit(self._process_message, msg)
+            self.chat_futures[chat_id] = future
+            logger.debug(f"Submit processing task: chat_id={chat_id}, execute directly")
+        else:
+            self.chat_queues[chat_id].append(msg)
+            logger.debug(f"Submit processing task: chat_i={chat_id}, queue length:{len(self.chat_queues)}")
 
     def start(self):
         self._thread.start()
 
     def stop(self):
         self._running = False
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=5)
+        if self.executor:
+            self.executor.shutdown(wait=False)
+        logger.info("AgentLoop has stopped")
