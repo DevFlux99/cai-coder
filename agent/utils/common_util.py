@@ -68,7 +68,7 @@ def init_workspace_templates(workspace: Path) -> list[str]:
     added_files: list[str] = []
 
     ensure_dir(workspace / "memory" / "logs")
-    long_term = ensure_dir(workspace / "long_term")
+    long_term = ensure_dir(workspace / "long-term")
     for sub in ("projects", "knowledge", "decisions", "lessons", "journal"):
         ensure_dir(long_term / sub)
 

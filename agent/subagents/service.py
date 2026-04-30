@@ -58,3 +58,22 @@ def get_sub_agent(sys_prompt:str, checkpointer: Checkpointer = InMemorySaver(), 
 
     log.debug("SubAgent 实例创建成功")
     return agent
+
+
+def get_memory_agent(sys_prompt:str, checkpointer: Checkpointer = InMemorySaver()):
+    from agent.tools import save_user_fact, save_preference, save_glossary_term
+
+    agent_tools = [
+        save_user_fact,
+        save_preference,
+        save_glossary_term,
+    ]
+
+    agent = create_agent(
+        model=_build_llm(),
+        system_prompt=sys_prompt,
+        tools=agent_tools,
+        checkpointer=checkpointer
+    )
+
+    return agent

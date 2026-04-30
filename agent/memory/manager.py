@@ -71,6 +71,18 @@ class MemoryManager:
             )
         log.debug(f"Glossary updated: {term}")
 
+    # ──────────────── Context Loading ────────────────
+    def get_memory_context(self) -> str:
+        """Build memory context string for system prompt injection."""
+        parts: list[str] = []
+
+        for name in ("profile", "preferences", "rules"):
+            content = self._safe_read(self.long_term_dir / f"{name}.md")
+            if content.strip():
+                parts.append(f"### {name}\n{content}")
+
+        return "\n\n".join(parts)
+
     # ──────────────── Internal Helpers ────────────────
 
     def _safe_read(self, path: Path) -> str:

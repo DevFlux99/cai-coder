@@ -212,3 +212,55 @@ class TestAppendOrUpdateSection:
         assert "Old skills" not in content
         assert "## Other" in content
         assert "Other info" in content
+
+
+class TestGetMemoryContext:
+    """测试 get_memory_context 方法"""
+
+    def test_returns_empty_string_when_all_files_missing(self, tmp_path):
+        """所有文件都不存在时返回空字符串"""
+        manager = MemoryManager(tmp_path)
+        result = manager.get_memory_context()
+        assert result == ""
+
+    def test_returns_empty_string_when_all_files_empty(self, tmp_path):
+        """所有文件都存在但内容为空时返回空字符串"""
+        manager = MemoryManager(tmp_path)
+        (manager.long_term_dir / "profile.md").write_text("", encoding="utf-8")
+        (manager.long_term_dir / "preferences.md").write_text("", encoding="utf-8")
+        (manager.long_term_dir / "rules.md").write_text("", encoding="utf-8")
+
+        result = manager.get_memory_context()
+        assert result == ""
+
+    def test_includes_only_files_with_content(self, tmp_path):
+        """只拼接有实际内容的文件"""
+        manager = MemoryManager(tmp_path)
+        (manager.long_term_dir / "profile.md").write_text("Name: Alice", encoding="utf-8")
+        # preferences.md 不创建或保持空
+        (manager.long_term_dir / "rules.md").write_text("Be polite", encoding="utf-8")
+
+        result = manager.get_memory_context()
+
+        assert "### profile" in result
+        assert "Name: Alice" in result
+        assert "### rules" in result
+        assert "Be polite" in result
+        # 关键断言：不应该包含 preferences 的标题
+        assert "### preferences" not in result
+
+    def test_maintains_correct_order(self, tmp_path):
+        """必须严格按照 profile -> preferences -> rules 的顺序输出"""
+        manager = MemoryManager(tmp_path)
+        # 故意倒序写入，避免巧合通过
+        (manager.long_term_dir / "rules.md").write_text("Rules", encoding="utf-8")
+        (manager.long_term_dir / "profile.md").write_text("Profile", encoding="utf-8")
+        (manager.long_term_dir / "preferences.md").write_text("Prefs", encoding="utf-8")
+
+        result = manager.get_memory_context()
+
+        profile_idx = result.index("### profile")
+        prefs_idx = result.index("### preferences")
+        rules_idx = result.index("### rules")
+
+        assert profile_idx < prefs_idx < rules_idx

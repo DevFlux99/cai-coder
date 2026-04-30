@@ -13,7 +13,8 @@ from langgraph.types import Checkpointer
 
 from .bus.bus import MessageBus
 from .bus.events import OutMessage, InMessage
-from .middleware import SkillMiddleware
+from .memory import MemoryManager
+from .middleware import SkillMiddleware, ConversationSummarizerMiddleware
 from .session import SessionManager
 from .tools import (
     get_weather,
@@ -53,7 +54,11 @@ def _build_llm() -> ChatOpenAI:
         temperature=0.7,
     )
 
-def get_agent(checkpointer: Checkpointer = InMemorySaver(), mcptools: list[BaseTool] = None):
+def get_agent(
+        checkpointer: Checkpointer = InMemorySaver(),
+        mcptools: list[BaseTool] = None,
+        memory_manager: MemoryManager=None
+):
     logger.debug("正在创建 Agent 实例...")
 
     agent_tools = [
@@ -75,42 +80,50 @@ def get_agent(checkpointer: Checkpointer = InMemorySaver(), mcptools: list[BaseT
 
     logger.debug(f"Agent 工具总数: {len(agent_tools)}")
 
+    middleware_list = [SkillMiddleware()]
+    if memory_manager:
+        from agent.memory import MemoryMiddleware
+        middleware_list.append(MemoryMiddleware(memory_manager))
+        logger.debug("MemoryMiddleware added to agent")
+
+    middleware_list.extend([
+        TodoListMiddleware(),
+        ToolRetryMiddleware(
+            max_retries=3,
+            initial_delay=1.0,  # 第一次重试前的初始延迟（以秒为单位）
+            backoff_factor=2.0  # 指数退避乘数。每次重试等待 initial_delay * (backoff_factor ** retry_number) 秒。
+        ),
+        ModelRetryMiddleware(
+            max_retries=3,
+            initial_delay=1.0,  # 第一次重试前的初始延迟（以秒为单位）
+            backoff_factor=2.0  # 指数退避乘数。每次重试等待 initial_delay * (backoff_factor ** retry_number) 秒。
+        ),
+        SummarizationMiddleware(
+            model=_build_llm(),
+            trigger=[
+                ("tokens", 128000)
+            ],
+            keep=("tokens", 80000)
+        ),
+        ContextEditingMiddleware(
+            edits=[
+                ClearToolUsesEdit(
+                    trigger=64000,
+                    keep=5,
+                    clear_tool_inputs=False,
+                    exclude_tools=[],
+                    placeholder="[cleared]",
+                )
+            ]
+        ),
+        ConversationSummarizerMiddleware()
+    ])
+
     agent = create_agent(
         model=_build_llm(),
         system_prompt=construct_system_prompt(),
         tools=agent_tools,
-        middleware=[
-            SkillMiddleware(),
-            TodoListMiddleware(),
-            ToolRetryMiddleware(
-                max_retries=3,
-                initial_delay=1.0,  # 第一次重试前的初始延迟（以秒为单位）
-                backoff_factor=2.0 # 指数退避乘数。每次重试等待 initial_delay * (backoff_factor ** retry_number) 秒。
-            ),
-            ModelRetryMiddleware(
-                max_retries=3,
-                initial_delay=1.0,  # 第一次重试前的初始延迟（以秒为单位）
-                backoff_factor=2.0  # 指数退避乘数。每次重试等待 initial_delay * (backoff_factor ** retry_number) 秒。
-            ),
-            SummarizationMiddleware(
-                model=_build_llm(),
-                trigger= [
-                    ("tokens",128000)
-                ],
-                keep=("tokens", 80000)
-            ),
-            ContextEditingMiddleware(
-                edits=[
-                    ClearToolUsesEdit(
-                        trigger=64000,
-                        keep=5,
-                        clear_tool_inputs=False,
-                        exclude_tools=[],
-                        placeholder="[cleared]",
-                    )
-                ]
-            )
-        ],
+        middleware=middleware_list,
         checkpointer=checkpointer
     )
 
@@ -124,11 +137,12 @@ class AgentLoop:
             self,bus: MessageBus,
             session_manager: SessionManager=None,
             checkpoint: Checkpointer = InMemorySaver(),
-            max_workers: int = 4
+            max_workers: int = 4,
+            memory_manager:MemoryManager=None
     ):
         self.bus = bus
         self.session_manager = session_manager
-        self.agent = get_agent(checkpointer=checkpoint)
+        self.agent = get_agent(checkpointer=checkpoint,memory_manager=memory_manager)
         self._running = False
         self._thread = threading.Thread(target=self.run, daemon=True)
         self.max_workers = max_workers
