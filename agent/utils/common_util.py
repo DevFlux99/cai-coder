@@ -67,6 +67,11 @@ def init_workspace_templates(workspace: Path) -> list[str]:
 
     added_files: list[str] = []
 
+    ensure_dir(workspace / "memory" / "logs")
+    long_term = ensure_dir(workspace / "long-term")
+    for sub in ("projects", "knowledge", "decisions", "lessons", "journal"):
+        ensure_dir(long_term / sub)
+
     def write_file(src, dest: Path):
         if dest.exists():
             return
@@ -74,9 +79,8 @@ def init_workspace_templates(workspace: Path) -> list[str]:
         dest.write_text(src.read_text(encoding="utf-8") if src else "", encoding="utf-8")
         added_files.append(str(dest.relative_to(workspace)))
 
-    for item in temp_path.iterdir():
-        if item.name.endswith(".md"):
-            write_file(item, workspace / item.name)
+    for item in temp_path.rglob("*.md"):
+        write_file(item, workspace / item.relative_to(temp_path))
 
     for name in added_files:
         log.info(f"init workspace template: create file {name}")

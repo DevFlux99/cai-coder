@@ -1,0 +1,242 @@
+import os
+import re
+import tempfile
+import threading
+from datetime import datetime
+from pathlib import Path
+
+from agent.memory.template import SESSION_LOG_ENTRY
+from agent.utils.common_util import ensure_dir
+from agent.utils.logger import get_logger
+
+log = get_logger("memory_manager")
+
+_L3_SUBDIRS = ("projects", "knowledge", "decisions", "lessons", "journal")
+
+class MemoryManager:
+    """Thread-safe manager for three-layer long-term memory.
+
+    L1: memory/logs/YYYY-MM-DD.md  -- raw session logs
+    L2: memory/this-week.md, memory/this-month.md  -- rolling summaries
+    L3: long-term/  -- persistent knowledge, profile, rules, etc.
+    """
+    def __init__(self, workspace: Path):
+        self.workspace = workspace
+        self.memory_dir = ensure_dir(workspace / "memory")
+        self.logs_dir = ensure_dir(self.memory_dir / "logs")
+        self.long_term_dir = ensure_dir(workspace / "long-term")
+        for sub in _L3_SUBDIRS:
+            ensure_dir(self.long_term_dir / sub)
+
+        self._lock = threading.RLock()
+
+    # ──────────────── L1: Session Logs ────────────────
+
+    def _today_log_path(self) -> Path:
+        return self.logs_dir / f"{datetime.now():%Y-%m-%d}.md"
+
+
+    def append_session_log(
+        self,
+        session_id: str,
+        summary: str,
+        decisions: list[str],
+        errors: list[str],
+    ) -> str:
+
+        path = self._today_log_path()
+        entry = SESSION_LOG_ENTRY.format(
+            session_id=session_id,
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            summary=summary,
+            decisions="; ".join(decisions) if decisions else "None",
+            errors="; ".join(errors) if errors else "None",
+        )
+
+        with self._lock:
+            if not path.exists():
+                header = f"# Session Logs - {datetime.now():%Y-%m-%d}\n"
+                self._atomic_write(path, header + entry)
+            else:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(entry)
+
+        log.debug(f"Session log appended: {path}")
+        return str(path)
+
+    # ──────────────── L3: Long-term Knowledge ───────────────
+
+    def _l3_file(self, name: str) -> Path:
+        return self.long_term_dir / name
+
+
+    def read_profile(self) -> str:
+        return self._safe_read(self._l3_file("profile.md"))
+
+    def read_preferences(self) -> str:
+        return self._safe_read(self._l3_file("preferences.md"))
+
+    def read_rules(self) -> str:
+        return self._safe_read(self._l3_file("rules.md"))
+
+    def read_glossary(self) -> str:
+        return self._safe_read(self._l3_file("glossary.md"))
+
+    def read_agent_index(self) -> str:
+        return self._safe_read(self._l3_file("AGENT.md"))
+
+    def update_profile(self, key:str, value:str) -> None:
+        with self._lock:
+            self._append_or_update_section(
+                self._l3_file("profile.md"), key, value
+            )
+        log.debug(f"Profile updated: {key}")
+
+    def update_preferences(self, key: str, value: str) -> None:
+        with self._lock:
+            self._append_or_update_section(
+                self._l3_file("preferences.md"), key, value
+            )
+        log.debug(f"Preferences updated: {key}")
+
+    def update_glossary(self, term: str, definition: str) -> None:
+        with self._lock:
+            self._append_or_update_section(
+                self._l3_file("glossary.md"), term, definition
+            )
+        log.debug(f"Glossary updated: {term}")
+
+    def add_lesson(self, task: str, mistake: str, solution: str) -> str:
+        from agent.memory.template import LESSON_TEMPLATE
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        slug = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", task)[:20].strip("-")
+        filename = f"{today}-{slug}.md"
+        path = self.long_term_dir / "lessons" / filename
+        content = LESSON_TEMPLATE.format(
+            date=today, task=task, mistake=mistake, solution=solution
+        )
+        with self._lock:
+            self._atomic_write(path, content)
+        log.info(f"Lesson saved: {path}")
+        return str(path)
+
+    def add_decision(
+        self,
+        topic: str,
+        context: str,
+        decision: str,
+        rationale: str,
+    ) -> str:
+        from agent.memory.template import DECISION_TEMPLATE
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        slug = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", topic)[:20].strip("-")
+        filename = f"{today}-{slug}.md"
+        path = self.long_term_dir / "decisions" / filename
+        content = DECISION_TEMPLATE.format(
+            date=today, topic=topic, context=context,
+            decision=decision, rationale=rationale,
+        )
+        with self._lock:
+            self._atomic_write(path, content)
+        log.info(f"Decision saved: {path}")
+        return str(path)
+
+    def add_knowledge(self, topic: str, content: str) -> str:
+        from agent.memory.template import KNOWLEDGE_TEMPLATE
+
+        slug = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", topic)[:30].strip("-")
+        filename = f"{slug}.md"
+        path = self.long_term_dir / "knowledge" / filename
+        body = KNOWLEDGE_TEMPLATE.format(topic=topic, content=content)
+        with self._lock:
+            self._atomic_write(path, body)
+        log.info(f"Knowledge saved: {path}")
+        return str(path)
+
+    def add_project(self, name: str, background: str) -> str:
+        from agent.memory.template import PROJECT_TEMPLATE
+
+        slug = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", name)[:30].strip("-")
+        filename = f"{slug}.md"
+        path = self.long_term_dir / "projects" / filename
+        body = PROJECT_TEMPLATE.format(
+            name=name,
+            date=datetime.now().strftime("%Y-%m-%d"),
+            background=background,
+        )
+        with self._lock:
+            self._atomic_write(path, body)
+        log.info(f"Project background saved: {path}")
+        return str(path)
+
+    def add_journal_entry(self, content: str) -> str:
+        today = datetime.now().strftime("%Y-%m-%d")
+        path = self.long_term_dir / "journal" / f"{today}.md"
+        entry = f"\n## {datetime.now():%H:%M}\n{content}\n"
+        with self._lock:
+            if not path.exists():
+                self._atomic_write(path, f"# Journal - {today}\n{entry}")
+            else:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(entry)
+        log.info(f"Journal entry saved: {path}")
+        return str(path)
+
+    # ──────────────── Context Loading ────────────────
+    def get_memory_context(self) -> str:
+        """Build memory context string for system prompt injection."""
+        parts: list[str] = []
+
+        for name in ("profile", "preferences", "rules"):
+            content = self._safe_read(self.long_term_dir / f"{name}.md")
+            if content.strip():
+                parts.append(f"### {name}\n{content}")
+
+        return "\n\n".join(parts)
+
+    # ──────────────── Internal Helpers ────────────────
+
+    def _safe_read(self, path: Path) -> str:
+        if not path.exists():
+            return ""
+        try:
+            return path.read_text(encoding="utf-8")
+        except Exception as e:
+            log.warning(f"Failed to read {path}: {e}")
+            return ""
+
+
+    def _atomic_write(self, path: Path, content: str) -> None:
+        dir_path = path.parent
+        dir_path.mkdir(parents=True, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=dir_path, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.replace(tmp_path, path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
+    def _append_or_update_section(self, path: Path, heading: str, content: str) -> None:
+        """Find '## {heading}' in markdown, replace content below it; or append new section."""
+        raw = ""
+        if path.exists():
+            raw = path.read_text(encoding="utf-8")
+
+        pattern = re.compile(
+            rf"(^##\s+{re.escape(heading)}\s*\n)(.*?)(?=^##\s|\Z)",
+            re.MULTILINE | re.DOTALL,
+        )
+
+        if pattern.search(raw):
+            new_raw = pattern.sub(rf"\1{content}\n", raw)
+        else:
+            new_raw = raw.rstrip() + f"\n\n## {heading}\n{content}\n"
+
+        self._atomic_write(path, new_raw)

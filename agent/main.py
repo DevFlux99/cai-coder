@@ -7,8 +7,10 @@ from agent.bus.bus import global_message_bus
 from agent.bus.events import OutMessage
 from agent.heartbeat.heatbeat import HeartbeatService
 from agent.integration.manager import ChannelManager
+from agent.memory import MemoryManager
 from agent.server import AgentLoop, get_agent
 from agent.session import SessionManager
+from agent.tools.memory_tools import init_memory_tools
 from agent.utils.common_util import get_working_dir, init_workspace_templates
 from agent.utils.logger import get_logger
 from agent.tools.crontool import _service as cron_service
@@ -22,6 +24,9 @@ def gateway():
 
     init_workspace_templates(Path(working_dir))
     session_manager = SessionManager(Path(working_dir))
+
+    memory_manager = MemoryManager(Path(working_dir))
+    init_memory_tools(memory_manager)
 
     bus = global_message_bus
     channel_manager = ChannelManager(bus)
@@ -72,7 +77,7 @@ def gateway():
     )
 
 
-    agent_loop = AgentLoop(bus=bus,session_manager=session_manager,checkpoint=checkpoint)
+    agent_loop = AgentLoop(bus=bus,session_manager=session_manager,checkpoint=checkpoint,memory_manager=memory_manager)
     agent_loop.start()
     heartbeat.start()
     cron_service.start()
