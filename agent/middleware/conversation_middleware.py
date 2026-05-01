@@ -78,11 +78,12 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
 
         # 截取从该标记之后的所有消息（包含压缩后遗留的）
         current_turn_messages = messages[start_index:]
-        if len(current_turn_messages) > 5:
+        if len(current_turn_messages) > 20:
             summary_prompt = _SYS_PROMPT + get_buffer_string(current_turn_messages)
+            self._record_messages_ids[thread_id] = state["messages"][-1].id if state["messages"] else None
             try:
                 self._pending.put_nowait(summary_prompt)
             except queue.Full:
                 log.warning("conversation_summarizer: 队列已满，丢弃本次总结任务")
-        self._record_messages_ids[thread_id] = state["messages"][-1].id if state["messages"] else None
+
         return None
