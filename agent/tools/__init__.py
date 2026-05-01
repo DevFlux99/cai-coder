@@ -10,4 +10,5 @@ from .memory_tools import (
     save_user_fact,
     save_preference,
     save_glossary_term,
+    append_session_summary
 )

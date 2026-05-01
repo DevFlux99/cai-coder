@@ -2,8 +2,10 @@ import os
 import re
 import tempfile
 import threading
+from datetime import datetime
 from pathlib import Path
 
+from agent.memory.template import SESSION_LOG_ENTRY
 from agent.utils.common_util import ensure_dir
 from agent.utils.logger import get_logger
 
@@ -28,7 +30,41 @@ class MemoryManager:
 
         self._lock = threading.RLock()
 
+    # ──────────────── L1: Session Logs ────────────────
 
+    def _today_log_path(self) -> Path:
+        return self.logs_dir / f"{datetime.now():%Y-%m-%d}.md"
+
+
+    def append_session_log(
+        self,
+        session_id: str,
+        summary: str,
+        decisions: list[str],
+        errors: list[str],
+    ) -> str:
+
+        path = self._today_log_path()
+        entry = SESSION_LOG_ENTRY.format(
+            session_id=session_id,
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            summary=summary,
+            decisions="; ".join(decisions) if decisions else "None",
+            errors="; ".join(errors) if errors else "None",
+        )
+
+        with self._lock:
+            if not path.exists():
+                header = f"# Session Logs - {datetime.now():%Y-%m-%d}\n"
+                self._atomic_write(path, header + entry)
+            else:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(entry)
+
+        log.debug(f"Session log appended: {path}")
+        return str(path)
+
+    # ──────────────── L3: Long-term Knowledge ───────────────
 
     def _l3_file(self, name: str) -> Path:
         return self.long_term_dir / name

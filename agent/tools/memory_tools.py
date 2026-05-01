@@ -32,6 +32,7 @@ def save_user_fact(key: str, value: str) -> str:
     """
     mgr = _get_manager()
     mgr.update_profile(key, value)
+    log.debug(f"Saved user fact: {key} = {value}")
     return f"Saved user fact: {key} = {value}"
 
 
@@ -47,6 +48,7 @@ def save_preference(key: str, value: str) -> str:
     """
     mgr = _get_manager()
     mgr.update_preferences(key, value)
+    log.debug(f"Saved preference: {key} = {value}")
     return f"Saved preference: {key} = {value}"
 
 @tool
@@ -63,4 +65,24 @@ def save_glossary_term(term: str, definition: str) -> str:
     return f"Glossary updated: {term}"
 
 
+@tool
+def append_session_summary(
+    session_id: str,
+    summary: str,
+    decisions: list[str],
+    errors: list[str],
+) -> str:
+    """Append a summary of the current session to the daily log.
+    Call this at the end of a significant session or when the user
+    explicitly asks you to remember the conversation.
 
+    Args:
+        session_id: Unique session identifier.
+        summary: Brief summary of the conversation.
+        decisions: Key decisions made during the session.
+        errors: Errors or issues encountered.
+    """
+    mgr = _get_manager()
+    path = mgr.append_session_log(session_id, summary, decisions, errors)
+    log.debug(f"Session summary appended to: {path}")
+    return f"Session summary appended to: {path}"

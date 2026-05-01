@@ -1,8 +1,11 @@
 import os
+from pathlib import Path
 
 import pytest
 
 from agent.memory.manager import MemoryManager, _L3_SUBDIRS
+from agent.memory.template import SESSION_LOG_ENTRY
+from agent.utils.common_util import ensure_dir
 
 
 class TestMemoryManagerInit:
@@ -264,3 +267,124 @@ class TestGetMemoryContext:
         rules_idx = result.index("### rules")
 
         assert profile_idx < prefs_idx < rules_idx
+
+class TestAppendSessionLog:
+    def test_template_contains_all_placeholders(self):
+        """验证模板包含所有必要的占位符"""
+        expected_placeholders = [
+            "{session_id}",
+            "{timestamp}",
+            "{summary}",
+            "{decisions}",
+            "{errors}",
+        ]
+        for placeholder in expected_placeholders:
+            assert placeholder in SESSION_LOG_ENTRY, \
+                f"Missing placeholder: {placeholder}"
+
+    def test_template_format_with_sample_data(self):
+        """验证模板能正确格式化"""
+        result = SESSION_LOG_ENTRY.format(
+            session_id="sess_001",
+            timestamp="2024-01-15 10:30:00",
+            summary="Test summary",
+            decisions="Decision A; Decision B",
+            errors="Error X",
+        )
+        assert "sess_001" in result
+        assert "2024-01-15 10:30:00" in result
+        assert "Test summary" in result
+        assert "Decision A; Decision B" in result
+        assert "Error X" in result
+        assert "**Time**:" in result
+        assert "**Summary**:" in result
+
+
+    def test_returns_path_with_correct_date_format(self, tmp_path):
+        from datetime import  date
+        manager = MemoryManager(tmp_path)
+        path = manager._today_log_path()
+
+        assert isinstance(path, Path)
+        assert path.parent == tmp_path / "memory" / "logs"
+        assert path.name == date.today().strftime("%Y-%m-%d") + ".md"
+
+
+    def test_creates_new_file_when_not_exists(self, tmp_path):
+        """当文件不存在时，应创建新文件并写入 header + entry"""
+        from datetime import  date
+
+        filename = date.today().strftime("%Y-%m-%d") + ".md"
+
+        file_path = tmp_path / "memory" / "logs" / filename
+        assert not file_path.exists()
+
+        manager = MemoryManager(tmp_path)
+        path = manager.append_session_log(
+                session_id="sess_123",
+                summary="Initial session",
+                decisions=["Use Python", "Use pytest"],
+                errors=["Minor warning"],
+            )
+
+
+        assert path == str(file_path)
+
+        written_content = file_path.read_text()
+        assert "# Session Logs - " + date.today().strftime("%Y-%m-%d") in written_content
+        assert "sess_123" in written_content
+
+    def test_appends_to_existing_file(self,tmp_path):
+        """当文件已存在时，应追加 entry 而不重写 header"""
+        from datetime import  date
+
+        datestr = str(date.today().strftime("%Y-%m-%d"))
+        filename = datestr + ".md"
+        ensure_dir(tmp_path / "memory" / "logs")
+        file_path = tmp_path / "memory" / "logs" / filename
+
+        file_path.write_text(f"# Session Logs - {datestr}\n", encoding="utf-8")
+
+        manager = MemoryManager(tmp_path)
+        path = manager.append_session_log(
+                session_id="sess_456",
+                summary="Second session",
+                decisions=["Continue"],
+                errors=[],
+            )
+        assert path == str(file_path)
+
+        content = file_path.read_text(encoding="utf-8")
+        assert "# Session Logs - " + date.today().strftime("%Y-%m-%d") in content
+        assert "sess_456" in content
+
+    def test_multiple_decisions_joined_by_semicolon(self, tmp_path):
+        """多个 decisions 应用分号连接"""
+
+        manager = MemoryManager(tmp_path)
+        result = manager.append_session_log(
+                session_id="sess_multi",
+                summary="session",
+                decisions=["Dec A", "Dec B", "Dec C"],
+                errors=["Error 1", "Error 2"],
+            )
+        file_path = Path(result)
+        written_content = file_path.read_text()
+        assert "**Key Decisions**: Dec A; Dec B; Dec C" in written_content
+        assert "**Errors/Issues**: Error 1; Error 2" in written_content
+
+    def test_empty_decisions_shows_none(self, tmp_path):
+        """decisions 为空列表时，应显示 'None'"""
+
+        manager = MemoryManager(tmp_path)
+        result = manager.append_session_log(
+                session_id="sess_empty",
+                summary="Test",
+                decisions=[],
+                errors=[],
+            )
+        file_path = Path(result)
+        written_content = file_path.read_text()
+        assert "**Key Decisions**: None" in written_content
+        assert "**Errors/Issues**: None" in written_content
+
