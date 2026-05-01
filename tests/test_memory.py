@@ -388,3 +388,236 @@ class TestAppendSessionLog:
         assert "**Key Decisions**: None" in written_content
         assert "**Errors/Issues**: None" in written_content
 
+# ==================== helper ====================
+def _read(path:str) -> str:
+    return Path(path).read_text(encoding="utf-8")
+
+# ==================== add_lesson ====================
+
+class TestAddLesson:
+    def test_creates_file_with_correct_path(self, tmp_path):
+        from datetime import  date
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_lesson(
+            task="Fix memory leak",
+            mistake="Forgot to close connection",
+            solution="Add context manager",
+        )
+        datestr = date.today().strftime("%Y-%m-%d")
+        expected_name = f"{datestr}-Fix-memory-leak.md"
+        assert path.endswith(f"lessons/{expected_name}")
+
+    def test_file_content_matches_template(self, tmp_path):
+        from datetime import  date
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_lesson(
+            task="Fix memory leak",
+            mistake="Forgot to close connection",
+            solution="Add context manager",
+        )
+        content = _read(path)
+        datestr = date.today().strftime("%Y-%m-%d")
+        assert "# Lesson: Fix memory leak" in content
+        assert f"**Date**: {datestr}" in content
+        assert "**Task**: Fix memory leak" in content
+        assert "**Mistake**: Forgot to close" in content
+        assert "**Solution**: Add context manager" in content
+
+
+    def test_slug_truncation_and_strip(self, tmp_path):
+        """slug 应被截断到 20 字符并去掉首尾的 '-'"""
+        from datetime import  date
+
+        long_task = "!!!This is a very long task name that should be truncated!!!"
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_lesson(task=long_task, mistake="m", solution="s")
+
+        filename = Path(path).name
+        datestr = date.today().strftime("%Y-%m-%d")
+        # 日期前缀 "2026-05-01-" 占 11 字符，slug 部分应 <= 20 字符
+        slug_part = filename.replace(f"{datestr}-", "").replace(".md", "")
+        assert len(slug_part) <= 20
+        assert not slug_part.startswith("-")
+        assert not slug_part.endswith("-")
+
+    def test_chinese_characters_in_task(self, tmp_path):
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_lesson(
+            task="修复内存泄漏问题",
+            mistake="忘记关闭连接",
+            solution="添加上下文管理器",
+        )
+        content = _read(path)
+        assert "修复内存泄漏问题" in content
+
+    def test_special_characters_replaced_by_dash(self, tmp_path):
+        """替换特殊字符"""
+        from datetime import  date
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_lesson(
+            task="Hello@World#Test",
+            mistake="m",
+            solution="s",
+        )
+        filename = Path(path).name
+        datestr = date.today().strftime("%Y-%m-%d")
+        slug = filename.replace(f"{datestr}-", "").replace(".md", "")
+        assert "@" not in slug
+        assert "#" not in slug
+
+# ==================== add_decision ====================
+class TestAddDecision:
+
+    def test_creates_file_with_correct_path(self, tmp_path):
+        from datetime import  date
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_decision(
+            topic="Choose database",
+            context="Need low latency",
+            decision="Use Redis",
+            rationale="Sub-ms latency",
+        )
+
+        datestr = date.today().strftime("%Y-%m-%d")
+        assert path.endswith(f"decisions/{datestr}-Choose-database.md")
+
+
+    def test_file_content_matches_template(self, tmp_path):
+        from datetime import  date
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_decision(
+            topic="Choose DB",
+            context="High concurrency",
+            decision="PostgresSQL",
+            rationale="Mature and reliable",
+        )
+        content = _read(path)
+        datestr = date.today().strftime("%Y-%m-%d")
+        assert "# Decision: Choose DB" in content
+        assert f"**Date**: {datestr}" in content
+        assert "**Context**: High concurrency" in content
+        assert "**Decision**: PostgresSQL" in content
+        assert "**Rationale**: Mature and reliable" in content
+
+    def test_slug_truncation(self, tmp_path):
+
+        manager = MemoryManager(tmp_path)
+        long_topic = "a" * 50
+        path = manager.add_decision(
+            topic=long_topic, context="c", decision="d", rationale="r",
+        )
+        slug_part = Path(path).stem.split("-", 3)[-1]
+        assert len(slug_part) <= 20
+
+# ==================== add_knowledge ====================
+class TestAddKnowledge:
+    def test_creates_file_with_correct_path(self, tmp_path):
+        # 不带日期前缀，slug 长度限制 30
+        manager = MemoryManager(tmp_path)
+        path = manager.add_knowledge(
+            topic="Python GIL",
+            content="The GIL prevents true parallel threads.",
+        )
+        assert path.endswith("knowledge/Python-GIL.md")
+
+    def test_file_content_matches_template(self, tmp_path):
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_knowledge(
+            topic="Python GIL",
+            content="The GIL prevents true parallel threads."
+        )
+        content = _read(path)
+        assert "# Knowledge: Python GIL" in content
+        assert "The GIL prevents true parallel threads." in content
+
+    def test_slug_truncation_30(self, tmp_path):
+
+        manager = MemoryManager(tmp_path)
+        long_topic = "Understanding distributed systems and consensus algorithms"
+        path = manager.add_knowledge(topic=long_topic, content="c")
+        slug = Path(path).stem
+        assert len(slug) <= 30
+
+# ==================== add_project ====================
+class TestAddProject:
+
+    def test_creates_file_with_correct_path(self, tmp_path):
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_project(
+            name="My Awesome Project",
+            background="A CLI tool for X",
+        )
+        assert path.endswith("projects/My-Awesome-Project.md")
+
+    def test_file_content_matches_template(self, tmp_path):
+        from datetime import date
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_project(
+            name="Proj X",
+            background="This is a cool project.",
+        )
+
+        content = _read(path)
+        datestr = date.today().strftime("%Y-%m-%d")
+        assert "# Project: Proj X" in content
+        assert f"Last Updated: {datestr}" in content
+        assert "This is a cool project." in content
+
+    def test_slug_truncation_30(self, tmp_path):
+
+        manager = MemoryManager(tmp_path)
+        long_name = "N" * 60
+        path = manager.add_project(name=long_name, background="bg")
+        slug = Path(path).stem
+        assert len(slug) <= 30
+
+# ==================== add_journal_entry ====================
+class TestAddJournalEntry:
+    def test_creates_new_journal_file(self, tmp_path):
+        from datetime import date, datetime
+
+        manager = MemoryManager(tmp_path)
+        path = manager.add_journal_entry("First entry today.")
+        content = _read(path)
+        datestr = date.today().strftime("%Y-%m-%d")
+        now = datetime.now().strftime("%H:%M")
+        assert f"# Journal - {datestr}" in content
+        assert f"## {now}" in content
+        assert "First entry today." in content
+
+
+    def test_appends_to_existing_journal(self, tmp_path):
+        from datetime import date
+
+        manager = MemoryManager(tmp_path)
+        # 第一次写入
+        path1 = manager.add_journal_entry("Morning entry.")
+        # 同一天第二次写入
+        path2 = manager.add_journal_entry("Afternoon entry.")
+        assert path1 == path2  # 同一个文件
+        content = _read(path1)
+        assert "Morning entry." in content
+        assert "Afternoon entry." in content
+        # 只有一个 journal header
+        datestr = date.today().strftime("%Y-%m-%d")
+        assert content.count(f"# Journal - {datestr}") == 1
+
+    def test_append_preserves_order(self, tmp_path):
+
+        manager = MemoryManager(tmp_path)
+        manager.add_journal_entry("First")
+        manager.add_journal_entry("Second")
+        path = manager.add_journal_entry("Third")
+        content_list = _read(path)
+        assert content_list.index("First") < content_list.index("Second")
+        assert content_list.index("Second") < content_list.index("Third")

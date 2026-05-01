@@ -85,7 +85,6 @@ class MemoryManager:
     def read_agent_index(self) -> str:
         return self._safe_read(self._l3_file("AGENT.md"))
 
-
     def update_profile(self, key:str, value:str) -> None:
         with self._lock:
             self._append_or_update_section(
@@ -106,6 +105,84 @@ class MemoryManager:
                 self._l3_file("glossary.md"), term, definition
             )
         log.debug(f"Glossary updated: {term}")
+
+    def add_lesson(self, task: str, mistake: str, solution: str) -> str:
+        from agent.memory.template import LESSON_TEMPLATE
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        slug = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", task)[:20].strip("-")
+        filename = f"{today}-{slug}.md"
+        path = self.long_term_dir / "lessons" / filename
+        content = LESSON_TEMPLATE.format(
+            date=today, task=task, mistake=mistake, solution=solution
+        )
+        with self._lock:
+            self._atomic_write(path, content)
+        log.info(f"Lesson saved: {path}")
+        return str(path)
+
+    def add_decision(
+        self,
+        topic: str,
+        context: str,
+        decision: str,
+        rationale: str,
+    ) -> str:
+        from agent.memory.template import DECISION_TEMPLATE
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        slug = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", topic)[:20].strip("-")
+        filename = f"{today}-{slug}.md"
+        path = self.long_term_dir / "decisions" / filename
+        content = DECISION_TEMPLATE.format(
+            date=today, topic=topic, context=context,
+            decision=decision, rationale=rationale,
+        )
+        with self._lock:
+            self._atomic_write(path, content)
+        log.info(f"Decision saved: {path}")
+        return str(path)
+
+    def add_knowledge(self, topic: str, content: str) -> str:
+        from agent.memory.template import KNOWLEDGE_TEMPLATE
+
+        slug = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", topic)[:30].strip("-")
+        filename = f"{slug}.md"
+        path = self.long_term_dir / "knowledge" / filename
+        body = KNOWLEDGE_TEMPLATE.format(topic=topic, content=content)
+        with self._lock:
+            self._atomic_write(path, body)
+        log.info(f"Knowledge saved: {path}")
+        return str(path)
+
+    def add_project(self, name: str, background: str) -> str:
+        from agent.memory.template import PROJECT_TEMPLATE
+
+        slug = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", name)[:30].strip("-")
+        filename = f"{slug}.md"
+        path = self.long_term_dir / "projects" / filename
+        body = PROJECT_TEMPLATE.format(
+            name=name,
+            date=datetime.now().strftime("%Y-%m-%d"),
+            background=background,
+        )
+        with self._lock:
+            self._atomic_write(path, body)
+        log.info(f"Project background saved: {path}")
+        return str(path)
+
+    def add_journal_entry(self, content: str) -> str:
+        today = datetime.now().strftime("%Y-%m-%d")
+        path = self.long_term_dir / "journal" / f"{today}.md"
+        entry = f"\n## {datetime.now():%H:%M}\n{content}\n"
+        with self._lock:
+            if not path.exists():
+                self._atomic_write(path, f"# Journal - {today}\n{entry}")
+            else:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(entry)
+        log.info(f"Journal entry saved: {path}")
+        return str(path)
 
     # ──────────────── Context Loading ────────────────
     def get_memory_context(self) -> str:

@@ -61,13 +61,28 @@ def get_sub_agent(sys_prompt:str, checkpointer: Checkpointer = InMemorySaver(), 
 
 
 def get_memory_agent(sys_prompt:str, checkpointer: Checkpointer = InMemorySaver()):
-    from agent.tools import save_user_fact, save_preference, save_glossary_term,append_session_summary
+    from agent.tools import (
+        save_user_fact,
+        save_preference,
+        save_glossary_term,
+        append_session_summary,
+        save_lesson_learned,
+        save_decision,
+        save_project_background,
+        save_knowledge,
+        save_journal_entry
+    )
 
     agent_tools = [
         save_user_fact,
         save_preference,
         save_glossary_term,
-        append_session_summary
+        append_session_summary,
+        save_lesson_learned,
+        save_decision,
+        save_project_background,
+        save_knowledge,
+        save_journal_entry
     ]
 
     agent = create_agent(
