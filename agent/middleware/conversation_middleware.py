@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from langchain.agents.middleware import AgentMiddleware
-from langchain_core.messages import get_buffer_string
+from langchain_core.messages import get_buffer_string, BaseMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.runtime import Runtime
 from langgraph.types import StateT
@@ -30,6 +30,7 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
         self._pending = queue.Queue(maxsize=max_queue)
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._start_workers(max_workers)
+        self._record_messages_ids:dict[str, str|None] = {}
 
     def _start_workers(self, workers: int):
         for _ in range(workers):
@@ -64,13 +65,24 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
             log.exception("conversation_summarizer: 后台总结任务失败")
 
     def after_agent(self, state: StateT, runtime: Runtime[ContextT]) -> dict[str, Any] | None:
-        messages = state.get("messages", [])
+        messages: list[BaseMessage]= state.get("messages", [])
+        thread_id = runtime.execution_info.thread_id
+        last_messages_id = self._record_messages_ids.get(thread_id)
 
-        if len(messages) > 5:
-            summary_prompt = _SYS_PROMPT + get_buffer_string(messages)
+        start_index = 0
+        if last_messages_id:
+            for i, msg in enumerate(messages):
+                if msg.id == last_messages_id:
+                    start_index = i + 1
+                    break
+
+        # 截取从该标记之后的所有消息（包含压缩后遗留的）
+        current_turn_messages = messages[start_index:]
+        if len(current_turn_messages) > 5:
+            summary_prompt = _SYS_PROMPT + get_buffer_string(current_turn_messages)
             try:
                 self._pending.put_nowait(summary_prompt)
             except queue.Full:
                 log.warning("conversation_summarizer: 队列已满，丢弃本次总结任务")
-
+        self._record_messages_ids[thread_id] = state["messages"][-1].id if state["messages"] else None
         return None
