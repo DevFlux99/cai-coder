@@ -99,9 +99,8 @@ class SkillMiddleware(AgentMiddleware):
         return None
 
 
-skillDict: dict = json.loads(
-    render_skills_json(Path(__file__).parent.parent / 'skills')
-)
+_skills_json = render_skills_json(Path(__file__).parent.parent / 'skills')
+skillDict: dict = json.loads(_skills_json) if _skills_json else {}
 
 
 SKILLS: list[SkillRecord] = skillDict.get("available_skills") or []

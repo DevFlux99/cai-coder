@@ -221,14 +221,16 @@ class CronService:
         try:
             if self.on_job:
                 self.on_job(job)
-            job.state.last_status = "ok"
-            job.state.last_error = None
+            last_status = "ok"
+            last_error = None
         except Exception as e:
-            job.state.last_status = "error"
-            job.state.last_error = str(e)
+            last_status = "error"
+            last_error = str(e)
             log.error(f"Cron: job '{job.name}' failed: {e}")
 
         with self._lock:
+            job.state.last_status = last_status
+            job.state.last_error = last_error
             job.state.last_run_at_ms = start_ms
 
             if job.schedule.kind == "at":
@@ -236,6 +238,8 @@ class CronService:
                 job.state.next_run_at_ms = None
             else:
                 job.state.next_run_at_ms = _compute_next_run(job.schedule, _now_ms())
+
+            self._save()
 
     def _get_next_wake_ms(self):
 

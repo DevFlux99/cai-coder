@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import threading
 from datetime import datetime
 from dataclasses import field, dataclass, asdict
 from pathlib import Path
@@ -41,6 +42,7 @@ class SessionManager:
         self.workspace = workspace
         self.sessions_dir = ensure_dir(self.workspace / "sessions")
         self._cache: dict[str, Session] = self._load()
+        self._lock = threading.Lock()
 
     def _get_session_path(self) -> Path:
         return self.sessions_dir / "sessions.json"
@@ -51,13 +53,14 @@ class SessionManager:
         :param key: Session key (channel:chat_id).
         :return: Session
         """
-        if key in self._cache:
-            return self._cache[key]
+        with self._lock:
+            if key in self._cache:
+                return self._cache[key]
 
-        session = Session(key=key)
-        self._cache[key] = session
-        self._save()
-        return session
+            session = Session(key=key)
+            self._cache[key] = session
+            self._save()
+            return session
 
     def _load(self) -> dict[str, Session]:
         session_path = self._get_session_path()

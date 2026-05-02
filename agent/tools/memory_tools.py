@@ -5,7 +5,7 @@ from agent.utils.logger import get_logger
 
 log = get_logger("memory_tools")
 
-_memory_manager:MemoryManager
+_memory_manager: MemoryManager = None
 
 
 def init_memory_tools(manager:MemoryManager) -> None:
