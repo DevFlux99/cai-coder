@@ -1,3 +1,4 @@
+import queue
 import os
 import threading
 from collections import defaultdict, deque
@@ -55,10 +56,12 @@ def _build_llm() -> ChatOpenAI:
     )
 
 def get_agent(
-        checkpointer: Checkpointer = InMemorySaver(),
+        checkpointer: Checkpointer = None,
         mcptools: list[BaseTool] = None,
         memory_manager: MemoryManager=None
 ):
+    if checkpointer is None:
+        checkpointer = InMemorySaver()
     logger.debug("正在创建 Agent 实例...")
 
     agent_tools = [
@@ -136,10 +139,12 @@ class AgentLoop:
     def __init__(
             self,bus: MessageBus,
             session_manager: SessionManager=None,
-            checkpoint: Checkpointer = InMemorySaver(),
+            checkpoint: Checkpointer = None,
             max_workers: int = 4,
             memory_manager:MemoryManager=None
     ):
+        if checkpoint is None:
+            checkpoint = InMemorySaver()
         self.bus = bus
         self.session_manager = session_manager
         self.agent = get_agent(checkpointer=checkpoint,memory_manager=memory_manager)
@@ -163,7 +168,10 @@ class AgentLoop:
             while self._running:
                 try:
                     msg = self.bus.consume_inbound(timeout=5)
+                except queue.Empty:
+                    continue
                 except Exception:
+                    logger.exception("Error consuming inbound message")
                     continue
                 if msg is None:
                     continue
@@ -220,13 +228,14 @@ class AgentLoop:
     def _submit_message(self, msg:InMessage):
         chat_id = msg.chat_id
 
-        if chat_id not in self.chat_futures:
-            future = self.executor.submit(self._process_message, msg)
-            self.chat_futures[chat_id] = future
-            logger.debug(f"Submit processing task: chat_id={chat_id}, execute directly")
-        else:
-            self.chat_queues[chat_id].append(msg)
-            logger.debug(f"Submit processing task: chat_i={chat_id}, queue length:{len(self.chat_queues)}")
+        with self.chat_locks[chat_id]:
+            if chat_id not in self.chat_futures:
+                future = self.executor.submit(self._process_message, msg)
+                self.chat_futures[chat_id] = future
+                logger.debug(f"Submit processing task: chat_id={chat_id}, execute directly")
+            else:
+                self.chat_queues[chat_id].append(msg)
+                logger.debug(f"Submit processing task: chat_i={chat_id}, queue length:{len(self.chat_queues)}")
 
     def start(self):
         self._thread.start()

@@ -56,7 +56,7 @@ def setup_logger(
 
 # 默认配置
 setup_logger(
-    level= "INFO" if os.getenv("LOG_LEVEL") == '' else os.getenv("LOG_LEVEL")
+    level=os.getenv("LOG_LEVEL") or "INFO"
 )
 
 def get_logger(name: str = "cai-coder"):

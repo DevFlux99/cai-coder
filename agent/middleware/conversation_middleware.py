@@ -26,6 +26,8 @@ _SYS_PROMPT = """
 """
 
 class ConversationSummarizerMiddleware(AgentMiddleware):
+    _MAX_RECORD_SIZE = 1000
+
     def __init__(self, max_workers: int = 2, max_queue: int = 50):
         self._pending = queue.Queue(maxsize=max_queue)
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -38,13 +40,12 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
 
     def _worker(self):
         while True:
+            summary_prompt = self._pending.get()
             try:
-                summary_prompt = self._pending.get()
                 self._run_summary(summary_prompt)
             except Exception:
                 log.exception("conversation_summarizer: worker 异常")
-            finally:
-                self._pending.task_done()
+            self._pending.task_done()
 
     def _run_summary(self, summary_prompt: str):
         checkpointer = InMemorySaver()
@@ -81,6 +82,10 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
         if len(current_turn_messages) > 20:
             summary_prompt = _SYS_PROMPT + get_buffer_string(current_turn_messages)
             self._record_messages_ids[thread_id] = state["messages"][-1].id if state["messages"] else None
+            if len(self._record_messages_ids) > self._MAX_RECORD_SIZE:
+                oldest_keys = list(self._record_messages_ids.keys())[:len(self._record_messages_ids) - self._MAX_RECORD_SIZE // 2]
+                for k in oldest_keys:
+                    del self._record_messages_ids[k]
             try:
                 self._pending.put_nowait(summary_prompt)
             except queue.Full:
