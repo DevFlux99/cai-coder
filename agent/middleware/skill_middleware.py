@@ -6,6 +6,8 @@ from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResp
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool
 
+from agent.prompt import get_working_dir
+from agent.utils import common_util
 from agent.utils.skill import (
 SkillRecord,
 render_skills_json,
@@ -99,7 +101,8 @@ class SkillMiddleware(AgentMiddleware):
         return None
 
 
-_skills_json = render_skills_json(Path(__file__).parent.parent / 'skills')
+_skills_json = render_skills_json(
+    Path(get_working_dir("WORKING_DIR", common_util.find_project_root())) / 'skills')
 skillDict: dict = json.loads(_skills_json) if _skills_json else {}
 
 
