@@ -23,7 +23,7 @@ class MockChannel(BaseChannel):
         assert msg.channel == self.name
         with self._lock:
             self.received.append(msg)
-        log.info(f"[发送回复] chat_id={msg.chat_id}, reply={msg.content[:100]}...")
+        log.info(f"[Reply sent] chat_id={msg.chat_id}, reply={msg.content[:100]}...")
 
     def start(self) -> None:
         log.info("start mock channel...")

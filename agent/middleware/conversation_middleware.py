@@ -44,7 +44,7 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
             try:
                 self._run_summary(summary_prompt)
             except Exception:
-                log.exception("conversation_summarizer: worker 异常")
+                log.exception("conversation_summarizer: worker error")
             self._pending.task_done()
 
     def _run_summary(self, summary_prompt: str):
@@ -61,9 +61,9 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
                 config=config,
             )
             checkpointer.delete_thread(thread_id)
-            log.debug(f"conversation_summarizer: 对话摘要已更新: {response['messages'][-1].content}")
+            log.debug(f"conversation_summarizer: conversation summary updated: {response['messages'][-1].content}")
         except Exception:
-            log.exception("conversation_summarizer: 后台总结任务失败")
+            log.exception("conversation_summarizer: background summarization task failed")
 
     def after_agent(self, state: StateT, runtime: Runtime[ContextT]) -> dict[str, Any] | None:
         messages: list[BaseMessage]= state.get("messages", [])
@@ -77,7 +77,7 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
                     start_index = i + 1
                     break
 
-        # 截取从该标记之后的所有消息（包含压缩后遗留的）
+        # Extract all messages after the marker (including those left after compression)
         current_turn_messages = messages[start_index:]
         if len(current_turn_messages) > 20:
             summary_prompt = _SYS_PROMPT + get_buffer_string(current_turn_messages)
@@ -89,6 +89,6 @@ class ConversationSummarizerMiddleware(AgentMiddleware):
             try:
                 self._pending.put_nowait(summary_prompt)
             except queue.Full:
-                log.warning("conversation_summarizer: 队列已满，丢弃本次总结任务")
+                log.warning("conversation_summarizer: queue is full, dropping this summarization task")
 
         return None

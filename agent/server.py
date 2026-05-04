@@ -38,12 +38,12 @@ _REQUIRED_ENV_VARS = ("OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL")
 def _check_env_vars() -> None:
     missing = [var for var in _REQUIRED_ENV_VARS if not os.getenv(var)]
     if missing:
-        logger.error(f"缺少必需的环境变量: {', '.join(missing)}")
+        logger.error(f"Missing required environment variables: {', '.join(missing)}")
         raise EnvironmentError(
             f"Missing required environment variable(s): {', '.join(missing)}. "
             "Please set them in .local.env or your shell environment."
         )
-    logger.debug("环境变量检查通过")
+    logger.debug("Environment variable check passed")
 
 
 def _build_llm() -> ChatOpenAI:
@@ -62,7 +62,7 @@ def get_agent(
 ):
     if checkpointer is None:
         checkpointer = InMemorySaver()
-    logger.debug("正在创建 Agent 实例...")
+    logger.debug("Creating Agent instance...")
 
     agent_tools = [
         get_weather,
@@ -78,10 +78,10 @@ def get_agent(
     ]
 
     if mcptools:
-        logger.debug(f"添加 {len(mcptools)} 个 MCP 工具")
+        logger.debug(f"Adding {len(mcptools)} MCP tools")
         agent_tools.extend(mcptools)
 
-    logger.debug(f"Agent 工具总数: {len(agent_tools)}")
+    logger.debug(f"Total agent tools: {len(agent_tools)}")
 
     middleware_list = [SkillMiddleware()]
     if memory_manager:
@@ -93,13 +93,13 @@ def get_agent(
         TodoListMiddleware(),
         ToolRetryMiddleware(
             max_retries=3,
-            initial_delay=1.0,  # 第一次重试前的初始延迟（以秒为单位）
-            backoff_factor=2.0  # 指数退避乘数。每次重试等待 initial_delay * (backoff_factor ** retry_number) 秒。
+            initial_delay=1.0,  # Initial delay in seconds before first retry
+            backoff_factor=2.0  # Exponential backoff multiplier. Each retry waits initial_delay * (backoff_factor ** retry_number) seconds.
         ),
         ModelRetryMiddleware(
             max_retries=3,
-            initial_delay=1.0,  # 第一次重试前的初始延迟（以秒为单位）
-            backoff_factor=2.0  # 指数退避乘数。每次重试等待 initial_delay * (backoff_factor ** retry_number) 秒。
+            initial_delay=1.0,  # Initial delay in seconds before first retry
+            backoff_factor=2.0  # Exponential backoff multiplier. Each retry waits initial_delay * (backoff_factor ** retry_number) seconds.
         ),
         SummarizationMiddleware(
             model=_build_llm(),
@@ -130,7 +130,7 @@ def get_agent(
         checkpointer=checkpointer
     )
 
-    logger.debug("Agent 实例创建成功")
+    logger.debug("Agent instance created successfully")
     return agent
 
 

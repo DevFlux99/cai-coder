@@ -13,7 +13,7 @@ ROLE = """
 """
 
 def get_working_dir(key: str, default: Path = "") -> str:
-    """读取环境变量，不存在或为空字符串时返回默认值"""
+    """Read environment variable, return default if missing or empty"""
     value = os.getenv(key)
     return value if value else default
 
