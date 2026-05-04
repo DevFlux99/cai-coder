@@ -9,7 +9,7 @@ from agent.utils.common_util import ensure_dir
 
 
 class TestMemoryManagerInit:
-    """测试 MemoryManager 初始化"""
+    """Test MemoryManager initialization"""
 
     def test_creates_memory_directory(self, tmp_path):
         manager = MemoryManager(tmp_path)
@@ -30,11 +30,11 @@ class TestMemoryManagerInit:
         manager = MemoryManager(tmp_path)
         for sub in _L3_SUBDIRS:
             sub_dir = manager.long_term_dir / sub
-            assert sub_dir.exists(), f"子目录 {sub} 不存在"
+            assert sub_dir.exists(), f"Subdirectory {sub} does not exist"
             assert sub_dir.is_dir()
 
     def test_existing_workspace_still_works(self, tmp_path):
-        """已有目录结构时不应报错"""
+        """Should not raise error when directory structure already exists"""
         (tmp_path / "memory" / "logs").mkdir(parents=True)
         (tmp_path / "long-term" / "projects").mkdir(parents=True)
         manager = MemoryManager(tmp_path)
@@ -44,15 +44,15 @@ class TestMemoryManagerInit:
         import threading
         manager = MemoryManager(tmp_path)
 
-        # 验证它在同一个线程内可以多次获取（这是 RLock 的核心特征，普通 Lock 会死锁）
+        # Verify it can be acquired multiple times within the same thread (core feature of RLock; a regular Lock would deadlock)
         with manager._lock:
-            # 如果是普通的 Lock，下面这行会永远阻塞卡死；如果是 RLock 则能顺利通过
+            # A regular Lock would block forever here; RLock passes through
             manager._lock.acquire()
             manager._lock.release()
 
 
 class TestSafeRead:
-    """测试 _safe_read 方法"""
+    """Test _safe_read method"""
 
     def test_returns_empty_string_for_nonexistent_file(self, tmp_path):
         manager = MemoryManager(tmp_path)
@@ -72,12 +72,12 @@ class TestSafeRead:
         test_file = tmp_path / "restricted.md"
         test_file.write_text("secret", encoding="utf-8")
 
-        # 移除读取权限（仅限 Unix）
+        # Remove read permission (Unix only)
         if os.name != "nt":
             test_file.chmod(0o000)
             result = manager._safe_read(test_file)
             assert result == ""
-            # 恢复权限以便清理
+            # Restore permissions for cleanup
             test_file.chmod(0o644)
 
     def test_handles_empty_file(self, tmp_path):
@@ -98,12 +98,12 @@ class TestSafeRead:
         assert result == content
 
 class TestReadProfileMethods:
-    """测试各种读取方法"""
+    """Test various read methods"""
 
     @pytest.fixture
     def manager_with_data(self, tmp_path):
         manager = MemoryManager(tmp_path)
-        # 写入各文件
+        # Write to each file
         (manager.long_term_dir / "profile.md").write_text("Profile content", encoding="utf-8")
         (manager.long_term_dir / "preferences.md").write_text("Preferences content", encoding="utf-8")
         (manager.long_term_dir / "rules.md").write_text("Rules content", encoding="utf-8")
@@ -135,7 +135,7 @@ class TestReadProfileMethods:
         assert manager.read_agent_index() == ""
 
 class TestAtomicWrite:
-    """测试 _atomic_write 方法"""
+    """Test _atomic_write method"""
 
     def test_writes_new_file(self, tmp_path):
         manager = MemoryManager(tmp_path)
@@ -175,7 +175,7 @@ class TestAtomicWrite:
 
 
 class TestAppendOrUpdateSection:
-    """测试 _append_or_update_section 方法"""
+    """Test _append_or_update_section method"""
 
     def test_creates_new_file_with_section(self, tmp_path):
         manager = MemoryManager(tmp_path)
@@ -218,16 +218,16 @@ class TestAppendOrUpdateSection:
 
 
 class TestGetMemoryContext:
-    """测试 get_memory_context 方法"""
+    """Test get_memory_context method"""
 
     def test_returns_empty_string_when_all_files_missing(self, tmp_path):
-        """所有文件都不存在时返回空字符串"""
+        """Return empty string when all files are missing"""
         manager = MemoryManager(tmp_path)
         result = manager.get_memory_context()
         assert result == ""
 
     def test_returns_empty_string_when_all_files_empty(self, tmp_path):
-        """所有文件都存在但内容为空时返回空字符串"""
+        """Return empty string when all files exist but have empty content"""
         manager = MemoryManager(tmp_path)
         (manager.long_term_dir / "profile.md").write_text("", encoding="utf-8")
         (manager.long_term_dir / "preferences.md").write_text("", encoding="utf-8")
@@ -237,10 +237,10 @@ class TestGetMemoryContext:
         assert result == ""
 
     def test_includes_only_files_with_content(self, tmp_path):
-        """只拼接有实际内容的文件"""
+        """Only concatenate files with actual content"""
         manager = MemoryManager(tmp_path)
         (manager.long_term_dir / "profile.md").write_text("Name: Alice", encoding="utf-8")
-        # preferences.md 不创建或保持空
+        # preferences.md not created or kept empty
         (manager.long_term_dir / "rules.md").write_text("Be polite", encoding="utf-8")
 
         result = manager.get_memory_context()
@@ -249,13 +249,13 @@ class TestGetMemoryContext:
         assert "Name: Alice" in result
         assert "### rules" in result
         assert "Be polite" in result
-        # 关键断言：不应该包含 preferences 的标题
+        # Key assertion: should not include preferences heading
         assert "### preferences" not in result
 
     def test_maintains_correct_order(self, tmp_path):
-        """必须严格按照 profile -> preferences -> rules 的顺序输出"""
+        """Must strictly follow profile -> preferences -> rules order"""
         manager = MemoryManager(tmp_path)
-        # 故意倒序写入，避免巧合通过
+        # Intentionally write in reverse order to avoid coincidental pass
         (manager.long_term_dir / "rules.md").write_text("Rules", encoding="utf-8")
         (manager.long_term_dir / "profile.md").write_text("Profile", encoding="utf-8")
         (manager.long_term_dir / "preferences.md").write_text("Prefs", encoding="utf-8")
@@ -270,7 +270,7 @@ class TestGetMemoryContext:
 
 class TestAppendSessionLog:
     def test_template_contains_all_placeholders(self):
-        """验证模板包含所有必要的占位符"""
+        """Verify template contains all required placeholders"""
         expected_placeholders = [
             "{session_id}",
             "{timestamp}",
@@ -283,7 +283,7 @@ class TestAppendSessionLog:
                 f"Missing placeholder: {placeholder}"
 
     def test_template_format_with_sample_data(self):
-        """验证模板能正确格式化"""
+        """Verify template formats correctly"""
         result = SESSION_LOG_ENTRY.format(
             session_id="sess_001",
             timestamp="2024-01-15 10:30:00",
@@ -311,7 +311,7 @@ class TestAppendSessionLog:
 
 
     def test_creates_new_file_when_not_exists(self, tmp_path):
-        """当文件不存在时，应创建新文件并写入 header + entry"""
+        """When file does not exist, create a new file with header + entry"""
         from datetime import  date
 
         filename = date.today().strftime("%Y-%m-%d") + ".md"
@@ -335,7 +335,7 @@ class TestAppendSessionLog:
         assert "sess_123" in written_content
 
     def test_appends_to_existing_file(self,tmp_path):
-        """当文件已存在时，应追加 entry 而不重写 header"""
+        """When file already exists, append entry without rewriting header"""
         from datetime import  date
 
         datestr = str(date.today().strftime("%Y-%m-%d"))
@@ -359,7 +359,7 @@ class TestAppendSessionLog:
         assert "sess_456" in content
 
     def test_multiple_decisions_joined_by_semicolon(self, tmp_path):
-        """多个 decisions 应用分号连接"""
+        """Multiple decisions should be joined by semicolons"""
 
         manager = MemoryManager(tmp_path)
         result = manager.append_session_log(
@@ -374,7 +374,7 @@ class TestAppendSessionLog:
         assert "**Errors/Issues**: Error 1; Error 2" in written_content
 
     def test_empty_decisions_shows_none(self, tmp_path):
-        """decisions 为空列表时，应显示 'None'"""
+        """When decisions is an empty list, should display 'None'"""
 
         manager = MemoryManager(tmp_path)
         result = manager.append_session_log(
@@ -427,7 +427,7 @@ class TestAddLesson:
 
 
     def test_slug_truncation_and_strip(self, tmp_path):
-        """slug 应被截断到 20 字符并去掉首尾的 '-'"""
+        """Slug should be truncated to 20 characters with leading/trailing '-' removed"""
         from datetime import  date
 
         long_task = "!!!This is a very long task name that should be truncated!!!"
@@ -437,7 +437,7 @@ class TestAddLesson:
 
         filename = Path(path).name
         datestr = date.today().strftime("%Y-%m-%d")
-        # 日期前缀 "2026-05-01-" 占 11 字符，slug 部分应 <= 20 字符
+        # Date prefix "2026-05-01-" takes 11 characters, slug part should be <= 20 characters
         slug_part = filename.replace(f"{datestr}-", "").replace(".md", "")
         assert len(slug_part) <= 20
         assert not slug_part.startswith("-")
@@ -455,7 +455,7 @@ class TestAddLesson:
         assert "修复内存泄漏问题" in content
 
     def test_special_characters_replaced_by_dash(self, tmp_path):
-        """替换特殊字符"""
+        """Replace special characters"""
         from datetime import  date
 
         manager = MemoryManager(tmp_path)
@@ -519,7 +519,7 @@ class TestAddDecision:
 # ==================== add_knowledge ====================
 class TestAddKnowledge:
     def test_creates_file_with_correct_path(self, tmp_path):
-        # 不带日期前缀，slug 长度限制 30
+        # No date prefix, slug length limit is 30
         manager = MemoryManager(tmp_path)
         path = manager.add_knowledge(
             topic="Python GIL",
@@ -600,15 +600,15 @@ class TestAddJournalEntry:
         from datetime import date
 
         manager = MemoryManager(tmp_path)
-        # 第一次写入
+        # First write
         path1 = manager.add_journal_entry("Morning entry.")
-        # 同一天第二次写入
+        # Second write on the same day
         path2 = manager.add_journal_entry("Afternoon entry.")
-        assert path1 == path2  # 同一个文件
+        assert path1 == path2  # Same file
         content = _read(path1)
         assert "Morning entry." in content
         assert "Afternoon entry." in content
-        # 只有一个 journal header
+        # Only one journal header
         datestr = date.today().strftime("%Y-%m-%d")
         assert content.count(f"# Journal - {datestr}") == 1
 

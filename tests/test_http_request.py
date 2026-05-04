@@ -3,8 +3,8 @@ from agent.tools.http_request import http_get, http_post
 
 
 def test_http_get():
-    """测试 GET 请求"""
-    # 使用 httpbin.org 测试
+    """Test GET request"""
+    # Test with httpbin.org
     result = http_get.invoke({"url": "https://httpbin.org/get"})
     assert result["success"] is True
     assert result["status_code"] == 200
@@ -13,8 +13,8 @@ def test_http_get():
 
 
 def test_http_post():
-    """测试 POST 请求"""
-    # 使用 httpbin.org 测试
+    """Test POST request"""
+    # Test with httpbin.org
     test_data = {"name": "test", "value": 123}
     result = http_post.invoke({"url": "https://httpbin.org/post", "json_data": test_data})
     assert result["success"] is True
@@ -23,7 +23,7 @@ def test_http_post():
 
 
 def test_http_with_headers():
-    """测试带请求头的请求"""
+    """Test request with custom headers"""
     headers = {"User-Agent": "test-agent", "Accept": "application/json"}
     result = http_get.invoke({"url": "https://httpbin.org/headers", "headers": headers})
     assert result["success"] is True
@@ -32,7 +32,7 @@ def test_http_with_headers():
 
 
 def test_http_with_params():
-    """测试带查询参数的请求"""
+    """Test request with query parameters"""
     params = {"param1": "value1", "param2": "value2"}
     result = http_get.invoke({"url": "https://httpbin.org/get", "params": params})
     assert result["success"] is True
@@ -41,15 +41,15 @@ def test_http_with_params():
 
 
 def test_http_error_handling():
-    """测试错误处理"""
-    # 测试不存在的 URL
+    """Test error handling"""
+    # Test with a non-existent URL
     result = http_get.invoke({"url": "https://nonexistent-domain-12345.com"})
     assert result["success"] is False
     assert "error" in result
 
 
 def test_http_404_error():
-    """测试 404 错误"""
+    """Test 404 error"""
     result = http_get.invoke({"url": "https://httpbin.org/status/404"})
-    assert result["success"] is True  # 请求成功，只是状态码是 404
+    assert result["success"] is True  # Request succeeded, but status code is 404
     assert result["status_code"] == 404

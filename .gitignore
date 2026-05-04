@@ -16,3 +16,7 @@ tests/snake-game/
 /skills/
 /sessions/
 /cron/
+
+*.env
+
+docker-compose*

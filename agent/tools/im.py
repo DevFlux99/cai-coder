@@ -14,20 +14,20 @@ def send_im_messages(
         message_id: str,
         media: list[str],
 ):
-    """通过指定的IM渠道向目标会话发送消息。
+    """Send a message to a target session via a specified IM channel.
 
-    该工具会将消息发布到内部消息总线，由对应的渠道服务（如飞书机器人）完成实际的消息下发。
-    注意：仅用于发送新消息，不支持回复特定消息。
+        This tool publishes the message to the internal message bus, and the corresponding channel service (such as the Feishu bot) completes the actual message delivery.
+        Note: This is only used for sending new messages and does not support replying to a specific message.
 
-    Args:
-        channel (str): IM渠道名称。例如："feishu"（飞书）、"dingtalk"（钉钉,目前不支持）、"wechat"（企业微信，目前不支持）等。
-        chat_id (str): 目标会话或群聊的唯一标识ID。通常由用户的上行消息上下文中获取。
-        content (str): 需要发送的具体消息文本内容（纯文本或特定格式支持的Markdown）。
-        message_id (str): 关联的源消息ID。通常用于消息链路追踪或记录“是针对哪条用户消息的回复”。
-        media (list[str]): 需要随消息一起发送的本地文件或图片的绝对路径列表。例如：["/data/uploads/img.png", "/data/docs/report.pdf"]。如果没有附件，必须传入空列表 []，严禁传入 None。
-    Returns:
-        str: 返回发送结果的确认信息，例如："消息发送成功"。
-    """
+        Args:
+            channel (str): The name of the IM channel. For example: "feishu" (Feishu), "dingtalk" (DingTalk, currently not supported), "wechat" (WeCom, currently not supported), etc.
+            chat_id (str): The unique identification ID of the target session or group chat. Usually obtained from the context of the user's incoming message.
+            content (str): The specific message text content to be sent (plain text or Markdown supported by specific formats).
+            message_id (str): The ID of the associated source message. Usually used for message link tracing or recording "which user message this is a reply to".
+            media (list[str]): A list of absolute paths to local files or images to be sent along with the message. For example: ["/data/uploads/img.png", "/data/docs/report.pdf"]. If there are no attachments, an empty list [] must be passed; strictly do not pass None.
+        Returns:
+            str: Returns a confirmation message of the sending result, for example: "消息发送成功".
+        """
     out_message = OutMessage(
         channel=channel,
         chat_id=chat_id,

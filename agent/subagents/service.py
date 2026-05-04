@@ -26,7 +26,7 @@ def get_sub_agent(sys_prompt:str, checkpointer: Checkpointer = InMemorySaver(), 
     # Deferred import to avoid circular dependencies
     from agent.tools import get_weather, read_file, write_file, ls, bash, http_request, http_get, http_post
 
-    log.debug("正在创建 SubAgent 实例...")
+    log.debug("Creating SubAgent instance...")
 
     agent_tools = [
         get_weather,
@@ -40,10 +40,10 @@ def get_sub_agent(sys_prompt:str, checkpointer: Checkpointer = InMemorySaver(), 
     ]
 
     if mcptools:
-        log.debug(f"添加 {len(mcptools)} 个 MCP 工具")
+        log.debug(f"Adding {len(mcptools)} MCP tools")
         agent_tools.extend(mcptools)
 
-    log.debug(f"SubAgent 工具总数: {len(agent_tools)}")
+    log.debug(f"SubAgent total tools: {len(agent_tools)}")
 
     agent = create_agent(
         model=_build_llm(),
@@ -56,7 +56,7 @@ def get_sub_agent(sys_prompt:str, checkpointer: Checkpointer = InMemorySaver(), 
         checkpointer=checkpointer
     )
 
-    log.debug("SubAgent 实例创建成功")
+    log.debug("SubAgent instance created successfully")
     return agent
 
 

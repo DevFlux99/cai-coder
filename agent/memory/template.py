@@ -1,5 +1,5 @@
 
-# ─── L1 会话日志条目模板 ───
+# ─── L1 Session log entry template ───
 
 SESSION_LOG_ENTRY = """\
 
@@ -12,7 +12,7 @@ SESSION_LOG_ENTRY = """\
 - **Errors/Issues**: {errors}
 """
 
-# ─── L3 经验教训模板 ───
+# ─── L3 Lesson learned template ───
 
 LESSON_TEMPLATE = """\
 # Lesson: {task}
@@ -22,7 +22,7 @@ LESSON_TEMPLATE = """\
 - **Solution**: {solution}
 """
 
-# ─── L3 决策记录模板 ───
+# ─── L3 Decision record template ───
 
 DECISION_TEMPLATE = """\
 # Decision: {topic}
@@ -33,7 +33,7 @@ DECISION_TEMPLATE = """\
 - **Rationale**: {rationale}
 """
 
-# ─── L3 领域知识模板 ───
+# ─── L3 Domain knowledge template ───
 
 KNOWLEDGE_TEMPLATE = """\
 # Knowledge: {topic}
@@ -41,7 +41,7 @@ KNOWLEDGE_TEMPLATE = """\
 """
 
 
-# ─── L3 项目背景模板 ───
+# ─── L3 Project background template ───
 
 PROJECT_TEMPLATE = """\
 # Project: {name}
