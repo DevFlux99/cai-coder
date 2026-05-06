@@ -15,33 +15,33 @@ def _http_request_impl(
     timeout: int = 30
 ) -> Dict[str, Any]:
     """
-    发送 HTTP 请求的实现函数
+    HTTP request implementation function
 
     Args:
-        url: 请求的 URL
-        method: HTTP 方法 (GET, POST, PUT, DELETE, etc.)
-        headers: 请求头字典
-        params: URL 查询参数
-        data: 表单数据
-        json_data: JSON 数据
-        timeout: 超时时间（秒）
+        url: Request URL
+        method: HTTP method (GET, POST, PUT, DELETE, etc.)
+        headers: Request headers dict
+        params: URL query parameters
+        data: Form data
+        json_data: JSON data
+        timeout: Timeout in seconds
 
     Returns:
-        包含响应信息的字典
+        Dict containing response information
     """
     try:
-        # 统一处理方法名为大写
+        # Normalize method to uppercase
         method = method.upper()
 
-        # 默认请求头
+        # Default headers
         if headers is None:
             headers = {}
 
-        # 如果有 JSON 数据，自动设置 Content-Type
+        # Automatically set Content-Type for JSON data
         if json_data is not None and 'Content-Type' not in headers:
             headers['Content-Type'] = 'application/json'
 
-        # 发送请求
+        # Send request
         response = requests.request(
             method=method,
             url=url,
@@ -52,13 +52,13 @@ def _http_request_impl(
             timeout=timeout
         )
 
-        # 尝试解析 JSON 响应
+        # Try to parse JSON response
         try:
             response_json = response.json()
         except json.JSONDecodeError:
             response_json = None
 
-        # 返回结构化的响应信息
+        # Return structured response information
         return {
             "success": True,
             "status_code": response.status_code,
@@ -88,19 +88,19 @@ def http_request(
     timeout: int = 30
 ) -> Dict[str, Any]:
     """
-    发送 HTTP 请求的工具
+    HTTP request tool
 
     Args:
-        url: 请求的 URL
-        method: HTTP 方法 (GET, POST, PUT, DELETE, etc.)
-        headers: 请求头字典
-        params: URL 查询参数
-        data: 表单数据
-        json_data: JSON 数据
-        timeout: 超时时间（秒）
+        url: Request URL
+        method: HTTP method (GET, POST, PUT, DELETE, etc.)
+        headers: Request headers dict
+        params: URL query parameters
+        data: Form data
+        json_data: JSON data
+        timeout: Timeout in seconds
 
     Returns:
-        包含响应信息的字典
+        Dict containing response information
     """
     return _http_request_impl(
         url=url,
@@ -120,8 +120,8 @@ def http_get(
     params: Optional[Dict[str, str]] = None,
     timeout: int = 30
 ) -> Dict[str, Any]:
-    """发送 GET 请求的便捷方法"""
-    # 使用 invoke 方法调用 http_request
+    """Convenience method for sending GET requests"""
+    # Use invoke method to call http_request
     return http_request.invoke({
         "url": url,
         "method": "GET",
@@ -139,8 +139,8 @@ def http_post(
     headers: Optional[Dict[str, str]] = None,
     timeout: int = 30
 ) -> Dict[str, Any]:
-    """发送 POST 请求的便捷方法"""
-    # 使用 invoke 方法调用 http_request
+    """Convenience method for sending POST requests"""
+    # Use invoke method to call http_request
     return http_request.invoke({
         "url": url,
         "method": "POST",

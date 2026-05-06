@@ -77,33 +77,33 @@ def add_cronjob(
         runtime: ToolRuntime
 ) -> CronJob:
     """
-    创建并启动一个定时任务，任务执行时将通过指定渠道将消息推送到当前会话中。
+    Create and start a scheduled task. When triggered, the task will push a message to the current conversation via the specified channel.
 
     Args:
-        kind (Literal["at", "every"]): 定时任务的触发类型。
-            - "at": 在某个绝对时间点触发一次。
-            - "every": 按固定周期循环触发。
-            - "cron": 使用cron表达式触发
-        time_ms (int): 时间配置，单位严格为毫秒。
-            - 当 kind 为 "at" 时：必须是未来的**绝对时间戳**（如 Unix 毫秒级时间戳 1690000000000）。禁止传入相对时间！
-            - 当 kind 为 "every" 时：表示执行的间隔时长（如 5000 代表每 5 秒执行一次）。
-            - 当 kind 为 "cron" 时：填 0
-        expr (str): cron表达式符号
-            - 当 kind 为 "cron" 时：标准的 Cron 表达式符号, 分别代表：分钟、小时、日期、月份、星期），中间用空格隔开
-            - 当 kind 不为 "cron" 时：填none
-        name (str): 定时任务的唯一名称标识，用于后续管理、查询或取消任务。
-        message (str): 定时任务触发时需要发送的具体消息内容。
-            - 当 event 为 "system_event" 时：请直接填入用户希望发送的完整文本。
-            - 当 event 为 "agent_turn" 时：把事情描述给Agent, Agent会自动执行。
-        channel (Literal["feishu", "cli"]): 任务触发后的消息推送渠道。
-            - "feishu": 推送到飞书，默认推送渠道为feishu。
-            - "cli": 推送到本地命令行终端，除非用户说推送到终端，否则不走这个channel。
-        event (Literal["system_event", "agent_turn"]): 消息的处理与发送方式。
-            - "system_event": 将 message 作为纯文本直接推送到渠道。
-            - "agent_turn": 将 message 作为工作内容交由 Agent 处理，然后将 Agent 的回复内容推送到渠道。
+        kind (Literal["at", "every"]): Trigger type of the scheduled task.
+            - "at": Trigger once at an absolute time point.
+            - "every": Trigger repeatedly at a fixed interval.
+            - "cron": Trigger using a cron expression.
+        time_ms (int): Time configuration in milliseconds.
+            - When kind is "at": Must be a future **absolute timestamp** (e.g. Unix millisecond timestamp 1690000000000). Relative times are NOT allowed!
+            - When kind is "every": Represents the execution interval (e.g. 5000 means every 5 seconds).
+            - When kind is "cron": Set to 0.
+        expr (str): Cron expression.
+            - When kind is "cron": Standard cron expression (minute, hour, day of month, month, day of week), separated by spaces.
+            - When kind is not "cron": Set to none.
+        name (str): Unique name identifier for the scheduled task, used for management, querying, or cancellation.
+        message (str): The specific message content to send when the task triggers.
+            - When event is "system_event": Fill in the complete text the user wants to send.
+            - When event is "agent_turn": Describe the task to the Agent, and the Agent will execute it automatically.
+        channel (Literal["feishu", "cli"]): Message push channel after the task triggers.
+            - "feishu": Push to Feishu. Default push channel is feishu.
+            - "cli": Push to the local command line terminal. Only use this channel if the user explicitly requests terminal output.
+        event (Literal["system_event", "agent_turn"]): Message processing and sending method.
+            - "system_event": Push message as plain text directly to the channel.
+            - "agent_turn": Pass message as work content to the Agent for processing, then push the Agent's reply to the channel.
 
     Returns:
-        CronJob: 成功创建的定时任务对象，包含任务状态等详细信息。
+        CronJob: The successfully created scheduled task object, including task status and other details.
     """
     if kind == "at":
         sched = CronSchedule(

@@ -30,7 +30,7 @@ class MemoryMiddleware(AgentMiddleware):
         modified_request = request.override(system_message=new_system_message)
         return handler(modified_request)
 
-# ─── 上下文注入提示 ───
+# ─── Context injection prompt ───
 
 MEMORY_CONTEXT_PROMPT = """\
 

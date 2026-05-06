@@ -37,7 +37,7 @@ def gateway():
         sessions = session_manager.list_sessions()
         if not sessions:
             return "cli", "skip"
-        # sessions 已按 updated_at 降序排列，取最近活跃的会话
+        # Sessions are sorted by updated_at in descending order, take the most recently active session
         first = sessions[0]
         channel, chat_id = first.key.split(":", 1)
         return channel, chat_id
@@ -88,7 +88,7 @@ def gateway():
 
 def run():
     logger.info("=" * 50)
-    logger.info("Cai-Coder 服务启动中...")
+    logger.info("Cai-Coder service starting...")
     logger.info("=" * 50)
 
     gateway()

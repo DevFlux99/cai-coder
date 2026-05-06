@@ -79,7 +79,7 @@ class CronJob:
             "enabled": self.enabled,
             "schedule": self.schedule.to_dict(),
             "state": self.state.to_dict(),
-            "payload": self.payload,  # 注意：payload 需要自行确保可序列化
+            "payload": self.payload,  # Note: payload must be serializable
         }
 
     @classmethod
@@ -132,7 +132,7 @@ class CronService:
         self.max_sleep_ms = max_sleep_ms
 
         self._jobs: list[CronJob] = []
-        self._lock = threading.RLock()  # 保护 _jobs 列表的线程安全
+        self._lock = threading.RLock()  # Thread-safe protection for _jobs list
         self._condition = threading.Condition(self._lock)
 
         self._running = False
@@ -258,7 +258,7 @@ class CronService:
             with open(corn_path, 'w', encoding='utf-8') as f:
                 f.write(data)
 
-    # ========== 公开的增删改查 API ==========
+    # ========== Public CRUD API ==========
     def add_job(self, name: str, schedule: CronSchedule, payload: Any=None) -> CronJob:
 
         job = CronJob(
@@ -270,7 +270,7 @@ class CronService:
             )
         )
 
-        # 【关键修复】加锁修改列表，并 notify 唤醒后台线程
+        # [Key fix] Lock list modification and notify to wake up background thread
         with self._condition:
             self._jobs.append(job)
             self._save()

@@ -4,7 +4,7 @@ from loguru import logger
 import sys
 from typing import Optional
 
-# 配置 loguru
+# Configure loguru
 def setup_logger(
     level: str = "INFO",
     log_file: Optional[str] = None,
@@ -13,14 +13,14 @@ def setup_logger(
     format_string: Optional[str] = None
 ):
     """
-    配置 loguru 日志记录器。
+    Configure loguru logger.
 
     Args:
-        level: 日志级别 ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-        log_file: 可选的日志文件路径
-        rotation: 日志轮转大小 (如 "10 MB")
-        retention: 日志保留时间 (如 "7 days")
-        format_string: 可选的自定义格式字符串
+        level: Log level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+        log_file: Optional log file path
+        rotation: Log rotation size (e.g. "10 MB")
+        retention: Log retention period (e.g. "7 days")
+        format_string: Optional custom format string
     """
     if format_string is None:
         format_string = (
@@ -30,10 +30,10 @@ def setup_logger(
             "<level>{message}</level>"
         )
 
-    # 移除默认的处理器
+    # Remove default handler
     logger.remove()
 
-    # 控制台处理器
+    # Console handler
     logger.add(
         sys.stdout,
         format=format_string,
@@ -41,7 +41,7 @@ def setup_logger(
         colorize=True
     )
 
-    # 文件处理器（可选）
+    # File handler (optional)
     if log_file:
         logger.add(
             log_file,
@@ -54,19 +54,19 @@ def setup_logger(
 
     return logger
 
-# 默认配置
+# Default configuration
 setup_logger(
     level=os.getenv("LOG_LEVEL") or "INFO"
 )
 
 def get_logger(name: str = "cai-coder"):
     """
-    获取一个日志记录器。
+    Get a logger instance.
 
     Args:
-        name: 日志记录器名称
+        name: Logger name
 
     Returns:
-        loguru logger 实例
+        loguru logger instance
     """
     return logger.bind(name=name)

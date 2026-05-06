@@ -72,7 +72,7 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     """Health check endpoint"""
-    logger.debug("健康检查请求")
+    logger.debug("Health check request")
     return {"status": "healthy"}
 
 
@@ -98,16 +98,16 @@ async def get_agent():
     global _agent_instance
     async with _agent_lock:
         if _agent_instance is None:
-            logger.debug("正在加载 MCP 工具...")
+            logger.debug("Loading MCP tools...")
             mcp_tools = await load_mcp_tools()
-            logger.debug(f"成功加载 {len(mcp_tools)} 个 MCP 工具")
+            logger.debug(f"Successfully loaded {len(mcp_tools)} MCP tools")
 
             _agent_instance = server.get_agent(
                 checkpointer= InMemorySaver(),
                 mcptools=mcp_tools
             )
 
-            logger.debug("Agent 实例创建成功")
+            logger.debug("Agent instance created successfully")
         return _agent_instance
 
 
@@ -211,7 +211,7 @@ async def get_chat_completion(
     import time
 
     created_timestamp = int(time.time())
-    logger.info(f"收到非流式聊天请求: completion_id={completion_id}, model={model}, 消息数={len(messages)}")
+    logger.info(f"Received non-streaming chat request: completion_id={completion_id}, model={model}, message_count={len(messages)}")
 
     try:
         # Get agent instance
@@ -255,11 +255,11 @@ async def get_chat_completion(
             )
         )
 
-        logger.info(f"聊天请求处理完成: completion_id={completion_id}, 响应长度={len(full_content)}")
+        logger.info(f"Chat request completed: completion_id={completion_id}, response_length={len(full_content)}")
         return response
 
     except Exception as e:
-        logger.error(f"聊天请求处理失败: completion_id={completion_id}, 错误: {e}")
+        logger.error(f"Chat request failed: completion_id={completion_id}, error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -300,7 +300,7 @@ async def chat_completions(
         return response
 
 def start(host :str = "0.0.0.0", port: int = 8000):
-    logger.info(f"Web 服务器启动中: host={host}, port={port}")
+    logger.info(f"Web server starting: host={host}, port={port}")
     uvicorn.run(app, host = host, port = port)
 
 if __name__ == "__main__":
