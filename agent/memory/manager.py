@@ -189,7 +189,7 @@ class MemoryManager:
         """Build memory context string for system prompt injection."""
         parts: list[str] = []
 
-        for name in ("profile", "preferences", "rules"):
+        for name in ("profile", "preferences", "rules", "glossary"):
             content = self._safe_read(self.long_term_dir / f"{name}.md")
             if content.strip():
                 parts.append(f"### {name}\n{content}")
