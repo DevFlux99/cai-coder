@@ -55,7 +55,10 @@ class SessionManager:
         """
         with self._lock:
             if key in self._cache:
-                return self._cache[key]
+                session = self._cache[key]
+                session.updated_at = datetime.now()
+                self._save()
+                return session
 
             session = Session(key=key)
             self._cache[key] = session
