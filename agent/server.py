@@ -46,14 +46,21 @@ def _check_env_vars() -> None:
     logger.debug("Environment variable check passed")
 
 
+_llm_instance: ChatOpenAI | None = None
+
+
 def _build_llm() -> ChatOpenAI:
+    global _llm_instance
+    if _llm_instance is not None:
+        return _llm_instance
     _check_env_vars()
-    return ChatOpenAI(
+    _llm_instance = ChatOpenAI(
         model=os.getenv("OPENAI_MODEL"),
         base_url=os.getenv("OPENAI_BASE_URL"),
         api_key=os.getenv("OPENAI_API_KEY"),
         temperature=0.7,
     )
+    return _llm_instance
 
 def get_agent(
         checkpointer: Checkpointer = None,
