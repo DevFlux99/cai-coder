@@ -66,8 +66,8 @@ class CronJobState:
 @dataclass
 class CronJob:
     id: str = field(default_factory=lambda :str(uuid.uuid4())[:8])
-    name: str = "",
-    enabled: bool = True,
+    name: str = ""
+    enabled: bool = True
     schedule: CronSchedule = field(default_factory=CronSchedule)
     state: CronJobState = field(default_factory=CronJobState)
     payload: Any = None

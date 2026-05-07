@@ -44,7 +44,9 @@ def resolve_path(path: str) -> str:
     # Resolve symlinks and normalise '..' / '.' components
     resolved = candidate.resolve()
 
-    if not str(resolved).startswith(str(working_dir)):
+    try:
+        resolved.relative_to(working_dir)
+    except ValueError:
         raise ValueError(
             f"Path '{path}' resolves to '{resolved}' which is outside "
             f"the working directory '{working_dir}'. Operation denied."
