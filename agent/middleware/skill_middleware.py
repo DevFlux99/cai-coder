@@ -98,7 +98,6 @@ class SkillMiddleware(AgentMiddleware):
             except Exception:
                 if attempt == 2:
                     raise
-        return None
 
 
 _skills_json = render_skills_json(
