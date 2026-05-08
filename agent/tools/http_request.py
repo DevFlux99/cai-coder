@@ -121,14 +121,13 @@ def http_get(
     timeout: int = 30
 ) -> Dict[str, Any]:
     """Convenience method for sending GET requests"""
-    # Use invoke method to call http_request
-    return http_request.invoke({
-        "url": url,
-        "method": "GET",
-        "headers": headers,
-        "params": params,
-        "timeout": timeout
-    })
+    return _http_request_impl(
+        url=url,
+        method="GET",
+        headers=headers,
+        params=params,
+        timeout=timeout
+    )
 
 
 @tool
@@ -140,12 +139,11 @@ def http_post(
     timeout: int = 30
 ) -> Dict[str, Any]:
     """Convenience method for sending POST requests"""
-    # Use invoke method to call http_request
-    return http_request.invoke({
-        "url": url,
-        "method": "POST",
-        "headers": headers,
-        "data": data,
-        "json_data": json_data,
-        "timeout": timeout
-    })
+    return _http_request_impl(
+        url=url,
+        method="POST",
+        headers=headers,
+        data=data,
+        json_data=json_data,
+        timeout=timeout
+    )
