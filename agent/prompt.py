@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 
 from agent.utils import common_util
 
@@ -12,10 +10,7 @@ ROLE = """
 
 """
 
-def get_working_dir(key: str, default: Path = "") -> str:
-    """Read environment variable, return default if missing or empty"""
-    value = os.getenv(key)
-    return value if value else default
+
 
 WORKING_ENV_SECTION ="""
 
@@ -116,5 +111,5 @@ SYSTEM_PROMPT= (
 
 def construct_system_prompt():
     return SYSTEM_PROMPT.format(
-        working_dir = get_working_dir("WORKING_DIR", common_util.find_project_root())
+        working_dir = common_util.get_working_dir()
     )
