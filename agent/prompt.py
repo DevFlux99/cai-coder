@@ -99,6 +99,29 @@ IM_MESSAGE_DISPATCHING_POLICY = """
 """
 
 
+MULTI_AGENT_SECTION = """
+
+    ## Multi-Agent Collaboration
+    You have access to a `delegate_agent` tool that can delegate tasks to specialized sub-agents.
+    Use it when a task clearly falls into a specialized domain:
+    
+    - **code-review**: Code review, PR analysis, code quality assessment
+    - **bug-fix**: Bug diagnosis, root cause analysis, fixing code errors
+    - **devops**: Deployment, Docker, CI/CD, server operations, infrastructure
+    
+    When to delegate:
+    - The user explicitly asks for a code review or PR review
+    - A complex bug needs systematic diagnosis and fixing
+    - The task involves DevOps/infrastructure operations
+    
+    When NOT to delegate:
+    - Simple Q&A or general coding questions
+    - Tasks you can handle quickly yourself
+    - When the user is already in an active conversation with you
+
+"""
+
+
 SYSTEM_PROMPT= (
     ROLE
     + WORKING_ENV_SECTION
@@ -107,6 +130,7 @@ SYSTEM_PROMPT= (
     + TOOL_USAGE_SECTION
     + GIT_USE_SECTION
     + IM_MESSAGE_DISPATCHING_POLICY
+    + MULTI_AGENT_SECTION
 )
 
 def construct_system_prompt():

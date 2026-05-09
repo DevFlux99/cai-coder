@@ -19,4 +19,7 @@ tests/snake-game/
 
 *.env
 
-docker-compose*
+docker-compose*__pycache__/
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -27,6 +27,8 @@ from .tools import (
     http_get,
     http_post, add_cronjob, send_im_messages
 )
+from .tools.delegate_agent import delegate_agent_tool
+from .multi_agent import AgentFactory, AgentDispatcher, agent_registry
 from .prompt import construct_system_prompt
 from .utils.logger import get_logger
 
@@ -62,6 +64,36 @@ def _build_llm() -> ChatOpenAI:
     )
     return _llm_instance
 
+# ---------- Multi-Agent Singletons ----------
+_dispatcher_instance: AgentDispatcher | None = None
+
+
+def _init_multi_agent(llm: ChatOpenAI) -> AgentDispatcher:
+    global _dispatcher_instance
+    if _dispatcher_instance is not None:
+        return _dispatcher_instance
+
+    tool_map = {
+        "get_weather": get_weather,
+        "read_file": read_file,
+        "write_file": write_file,
+        "ls": ls,
+        "bash": bash,
+        "http_request": http_request,
+        "http_get": http_get,
+        "http_post": http_post,
+    }
+
+    factory = AgentFactory(llm=llm, available_tools=tool_map)
+    _dispatcher_instance = AgentDispatcher(factory=factory, llm=llm)
+    delegate_agent_tool.set_dispatcher(_dispatcher_instance)
+    logger.info(
+        f"Multi-agent system initialized: "
+        f"{agent_registry.get_agent_names()}"
+    )
+    return _dispatcher_instance
+
+
 def get_agent(
         checkpointer: Checkpointer = None,
         mcptools: list[BaseTool] = None,
@@ -70,6 +102,9 @@ def get_agent(
     if checkpointer is None:
         checkpointer = InMemorySaver()
     logger.debug("Creating Agent instance...")
+
+    llm = _build_llm()
+    _init_multi_agent(llm)
 
     agent_tools = [
         get_weather,
@@ -81,7 +116,8 @@ def get_agent(
         http_get,
         http_post,
         add_cronjob,
-        send_im_messages
+        send_im_messages,
+        delegate_agent_tool
     ]
 
     if mcptools:
@@ -109,7 +145,7 @@ def get_agent(
             backoff_factor=2.0  # Exponential backoff multiplier. Each retry waits initial_delay * (backoff_factor ** retry_number) seconds.
         ),
         SummarizationMiddleware(
-            model=_build_llm(),
+            model=llm,
             trigger=[
                 ("tokens", 128000)
             ],
@@ -130,7 +166,7 @@ def get_agent(
     ])
 
     agent = create_agent(
-        model=_build_llm(),
+        model=llm,
         system_prompt=construct_system_prompt(),
         tools=agent_tools,
         middleware=middleware_list,
